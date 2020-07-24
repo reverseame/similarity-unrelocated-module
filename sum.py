@@ -35,7 +35,7 @@ class sum(AbstractWindowsCommand):
         Undoes modifications done by relocation process on modules in memory dumps. Then it yields a Similarity Digest for each page of unrelocated modules.
 
         Options:
-          -P: Process PID(s). Will hash given processes PIDs.
+          -p: Process PID(s). Will hash given processes PIDs.
                 (-P 252 | -P 252,452,2852)
 
           -n REGEX, --name REGEX: Process expression. Will hash processes that contain REGEX.
