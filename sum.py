@@ -32,14 +32,16 @@ PAGE_SIZE = 4096
 class sum(AbstractWindowsCommand):
     """SUM (Similarity Unrelocated Module)
 
+        Undoes modifications done by relocation process on modules in memory dumps. Then it yields a Similarity Digest for each page of unrelocated modules.
+
         Options:
           -P: Process PID(s). Will hash given processes PIDs.
                 (-P 252 | -P 252,452,2852)
 
-          -E: Process expression. Will hash processes that contain given string in the name.
+          -n REGEX, --name REGEX: Process expression. Will hash processes that contain REGEX.
                 (-E svchost | -E winlogon,explorer)
                 
-          -D: Module expression. Will hash modules that contain given string in the name.
+          -r REGEX, --module-name REGEX: Module expression. Will hash modules that contain REGEX.
                 (-D ntdll | -D kernel,advapi)
 
           -A: Algorithm to use. Available: ssdeep, sdhash, tlsh, dcfldd. Default: ssdeep
@@ -61,7 +63,7 @@ class sum(AbstractWindowsCommand):
           -H: Human readable values (Create Time)
           -t: Show computation time
 
-          -T: Temp folder to write all data
+          -D DIR, --dump-dir=DIR: Temp folder to write all data
 
           --output-file=<file>: Plugin output will be writen to given file.
           --output=<format>: Output formatting. [text, dot, html, json, sqlite, quick, xlsx]
@@ -84,9 +86,9 @@ class sum(AbstractWindowsCommand):
 
     def __init__(self, config, *args, **kwargs):
         AbstractWindowsCommand.__init__(self, config, *args, **kwargs)
-        self._config.add_option('PID', short_option='P', help='Process ID', action='store',type='str')
-        self._config.add_option('PROC-EXPRESSION', short_option='E', help='Expression containing process name', action='store', type='str')
-        self._config.add_option('MODULE-EXPRESSION', short_option='D', help='Expression containing dll name', action='store', type='str')
+        self._config.add_option('PID', short_option='p', help='Process ID', action='store',type='str')
+        self._config.add_option('NAME', short_option='n', help='Expression containing process name', action='store', type='str')
+        self._config.add_option('MODULE-NAME', short_option='r', help='Modules matching MODULE-NAME', action='store', type='str')
         self._config.add_option('ALGORITHM', short_option='A', default='ssdeep', help='Hash algorithm', action='store', type='str')
         self._config.add_option('SECTION', short_option='S', help='PE section to hash', action='store', type='str')
         self._config.add_option('COMPARE-HASH', short_option='c', help='Compare to given hash', action='append', type='str')
@@ -94,12 +96,13 @@ class sum(AbstractWindowsCommand):
         self._config.add_option('HUMAN-READABLE', short_option='H', help='Show human readable values', action='store_true')
         self._config.add_option('TIME', short_option='t', help='Print computation time', action='store_true')
         self._config.add_option('STRINGS', short_option='s', help='Hash strings contained in binary data', action='store_true')
-        self._config.add_option('TMP-FOLDER', short_option='T', help='Temp folder to write all data', action='store', type='str')
+        self._config.add_option('DUMP-DIR', short_option='D', help='Directory in which to dump files', action='store', type='str')
         self._config.add_option('LIST-SECTIONS', help='Show PE sections', action='store_true')
         self._config.add_option('JSON', help='Print JSON output', action='store_true')
         self._config.add_option('GUIDED-DERELOCATION', help='De-relocate modules guided by .reloc section when it is found', action='store_true')
         self._config.add_option('LINEAR-SWEEP-DERELOCATION', help='De-relocate modules by sweep linear disassembling, recognizing table patterns and de-relocating IAT', action='store_true')
         self._config.add_option('DERELOCATION', short_option='u', help='De-relocate modules using guided pre-processing when it is posible, else use linear sweep de-relocation', action='store_true')
+        #self._config.add_option('LOG-MEMORY-PAGES', help='Log pages which are in memory to FILE', action='store', type='str')
         self.reloc_list = {}
         self.files_opened_in_system = {}
 
@@ -124,7 +127,7 @@ class sum(AbstractWindowsCommand):
             elif self._config.COMPARE_FILE:
                 hashes = self.read_hash_files(self._config.COMPARE_FILE[0].split(','))
 
-            self._config.TMP_FOLDER = self.prepare_working_dir()
+            self._config.DUMP_DIR = self.prepare_working_dir()
 
             for dump in self.dll_dump(pids):
                 if hashes:
@@ -156,9 +159,9 @@ class sum(AbstractWindowsCommand):
 
         pids = []
 
-        if self._config.PROC_EXPRESSION:
+        if self._config.NAME:
             # Prepare all processes names as regular expresions
-            names = '.*{0}.*'.format(self._config.PROC_EXPRESSION.replace(',', '.*,.*')).split(',')
+            names = '.*{0}.*'.format(self._config.NAME.replace(',', '.*,.*')).split(',')
             pids = self.get_proc_by_name(names)
         else:
             pids = self.get_proc_by_pid(self._config.PID)
@@ -321,8 +324,8 @@ class sum(AbstractWindowsCommand):
 
         @returns a list of DLLObject sorted by (pid, mod.BaseAddress)
         """
-        if self._config.MODULE_EXPRESSION:
-            dlls_expression = '.*{0}.*'.format(self._config.MODULE_EXPRESSION.replace(',', '.*|.*'))
+        if self._config.MODULE_NAME:
+            dlls_expression = '.*{0}.*'.format(self._config.MODULE_NAME.replace(',', '.*|.*'))
 
         else:
             dlls_expression = None
@@ -395,8 +398,8 @@ class sum(AbstractWindowsCommand):
                                                     self._config.COMPARE_HASH or self._config.COMPARE_FILE),
                                                     offset=sec.VirtualAddress, size=sec.real_size, pe_memory_time='{0:.20f}'.format(pe_memory_time), pre_processing_time='{0:.20f}'.format(pre_processing_time) if pre_processing_time else None)
 
-                                    if self._config.TMP_FOLDER:
-                                        dump_path = os.path.join(self._config.TMP_FOLDER,
+                                    if self._config.DUMP_DIR:
+                                        dump_path = os.path.join(self._config.DUMP_DIR,
                                                                  'module.{0}.{1}.{2}{3}.{4:x}.dmp'.format(
                                                                      self.get_exe_module(task).BaseDllName,
                                                                      task.UniqueProcessId, mod_name,
@@ -426,8 +429,8 @@ class sum(AbstractWindowsCommand):
             return f.write(data)
 
     def prepare_working_dir(self):
-        if self._config.TMP_FOLDER:
-            temp_path = os.path.realpath(self._config.TMP_FOLDER)
+        if self._config.DUMP_DIR:
+            temp_path = os.path.realpath(self._config.DUMP_DIR)
             if not os.path.exists(temp_path):
                 os.makedirs(temp_path)
             return temp_path

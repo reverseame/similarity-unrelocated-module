@@ -5,7 +5,7 @@ systemdeps="python2.7 python2.7-dev python-pip ssdeep libfuzzy-dev git cmake lib
 pythondeps="pycrypto distorm3 pefile ssdeep fuzzyhashlib capstone"
 
 # Add jessie-backports repository
-cp jessie-backports.list /etc/apt/sources.list.d
+cp jessie.list /etc/apt/sources.list.d
 apt-get update
 
 # Install system dependencies
