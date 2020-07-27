@@ -1,13 +1,14 @@
 # Similarity Unrelocated Module - Volatility Plugin
 
-`sum` for Volatility 2.7 undoes modifications done by relocation process on modules (namely, .exe, or .dll) in memory dumps. Then it yields a Similarity Digest for each page of unrelocated modules.
+`sum` for Volatility 2.7 undoes modifications done by relocation process on modules (namely, processes of .exe and .dll files) contained in memory dumps. Then it yields a Similarity Digest for each memory page of unrelocated modules.
 
 This plugin implements two de-relocation methods: 
-- **Guided De-relocaion** uses the `.reloc` section, when it is recoverable from dump, to identify the bytes affected by relocation and de-relocate them.
-- **Linear Sweep De-relocation** identifies the PE structures and known patterns of structures before uses a linear sweep disassembler to find instructions affected by relocation and de-relocate all affected bytes.
+- **Guided De-relocation** uses the `.reloc` section, when it is recoverable from the module dump, to identify the bytes affected by relocation and then de-relocate them.
+- **Linear Sweep De-relocation** first identifies the fields in the PE header and well-known patterns of structures. Then it uses a linear sweep disassembler to find instructions affected by relocation and de-relocate all affected bytes.
 
-A Similarity Digest Algorithm (also known as approximate matching algorithm) identifies similarities between digital artifacts. In particular, the algorithm outputs a digest which depends on the input data, and can then be compared with other digests.
-The algorrithms include in the plugin are `dcfldd`, `ssdeep`, `SDhash`, and `TLSH`
+A Similarity Digest Algorithm (also known as approximate matching algorithm) identifies similarities between digital artifacts. In particular, the algorithm outputs a digest that can then be compared with other digests, obtaining a similarity score (which normally ranges from 0 to 100).
+
+At the moment of this writing, the algorithms included in this plugin are `dcfldd`, `ssdeep`, `SDhash`, and `TLSH`
 
 ## Installation
 
@@ -74,7 +75,7 @@ Note:
     - Params -c and -C can be given multiple times (E.g. vol.py (...) -c <hash1> -c <hash2>)
 
 ```
-You need to provide this project path as [first parameter to Volatility](https://github.com/volatilityfoundation/volatility/wiki/Volatility-Usage#specifying-additional-plugin-directories):
+You need to provide the path to the plugin as [first parameter to Volatility](https://github.com/volatilityfoundation/volatility/wiki/Volatility-Usage#specifying-additional-plugin-directories):
 
 ```
 vol.py --plugins /path/to/sum  --profile WinProfile --f /path/to/memory.dump sum 
