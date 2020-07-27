@@ -2,6 +2,7 @@ import os
 import re
 import json
 import time
+import hashlib
 
 import pefile
 import volatility.obj as obj
@@ -49,8 +50,7 @@ class sum(AbstractWindowsCommand):
 
           -S: Section to hash
                PE section (-S .text | -S .data,.rsrc)
-               PE header (-S header | -S header,NT_HEADERS)
-               PE section header (-S .text:header | -S .data,.rsrc:header)
+               PE header (-S header | -S .data,header,.rsrc)
                All PE sections including main executable module (-S all)
 
           -s: Hash ASCII strings instead of binary data.
@@ -78,9 +78,9 @@ class sum(AbstractWindowsCommand):
 
           --derelocation: De-relocate modules using guided pre-processing when it is posible, else use linear sweep de-relocation
 
+          --log-memory-pages LOGNAME: Log pages which are in memory to LOGNAME
+
         Note:
-          - Supported PE header names (pefile): DOS_HEADER, NT_HEADERS, FILE_HEADER, 
-                                                OPTIONAL_HEADER, header
           - Hashes' file given with -C must contain one hash per line.
           - Params -c and -C can be given multiple times (E.g. vol.py (...) -c <hash1> -c <hash2>)"""
 
@@ -102,7 +102,7 @@ class sum(AbstractWindowsCommand):
         self._config.add_option('GUIDED-DERELOCATION', help='De-relocate modules guided by .reloc section when it is found', action='store_true')
         self._config.add_option('LINEAR-SWEEP-DERELOCATION', help='De-relocate modules by sweep linear disassembling, recognizing table patterns and de-relocating IAT', action='store_true')
         self._config.add_option('DERELOCATION', short_option='u', help='De-relocate modules using guided pre-processing when it is posible, else use linear sweep de-relocation', action='store_true')
-        #self._config.add_option('LOG-MEMORY-PAGES', help='Log pages which are in memory to FILE', action='store', type='str')
+        self._config.add_option('LOG-MEMORY-PAGES', help='Log pages which are in memory to FILE', action='store', type='str')
         self.reloc_list = {}
         self.files_opened_in_system = {}
 
@@ -333,6 +333,12 @@ class sum(AbstractWindowsCommand):
         if self._config.DERELOCATION or self._config.GUIDED_DERELOCATION:
             # acquiring all dlls and exes that were opened in system
             acquire_sys_file_handlers(self, conf)
+        
+        if self._config.LOG_MEMORY_PAGES:
+            if not self._config.SECTION or self._config.SECTION=='all' or 'PE' in self._config.LOG_MEMORY_PAGES:
+                logfile = open(self._config.LOG_MEMORY_PAGES, "w")
+            else:
+                debug.warning('Warning: PE is not being dumped')
 
         for task in tasks.pslist(self.addr_space):
             if task.UniqueProcessId in pids:
@@ -346,9 +352,9 @@ class sum(AbstractWindowsCommand):
                         if dlls_expression:
                             if not re.search(dlls_expression, str(mod_name), flags=re.IGNORECASE):
                                 continue
+                        valid_pages = [task_space.is_valid_address(mod.DllBase+i) for i in range(0, mod.SizeOfImage, PAGE_SIZE)]
                         start = time.time()
-                        pe = PeMemory(task_space.zread(mod.DllBase, mod.SizeOfImage), mod.DllBase, 
-                                        [task_space.is_valid_address(mod.DllBase+i) for i in range(0, mod.SizeOfImage, PAGE_SIZE)])
+                        pe = PeMemory(task_space.zread(mod.DllBase, mod.SizeOfImage), mod.DllBase, valid_pages)
                         end = time.time()
 
                         pe_memory_time = end - start
@@ -380,7 +386,6 @@ class sum(AbstractWindowsCommand):
 
                                 pre_processing_time = end - start
 
-
                             # Generate one dump Object for every section/header specified
 
                             # Set the list of sections that match with -S expression
@@ -397,14 +402,20 @@ class sum(AbstractWindowsCommand):
                                                     mod.FullDllName, time=self._config.TIME and not (
                                                     self._config.COMPARE_HASH or self._config.COMPARE_FILE),
                                                     offset=sec.VirtualAddress, size=sec.real_size, pe_memory_time='{0:.20f}'.format(pe_memory_time), pre_processing_time='{0:.20f}'.format(pre_processing_time) if pre_processing_time else None)
-
-                                    if self._config.DUMP_DIR:
-                                        dump_path = os.path.join(self._config.DUMP_DIR,
-                                                                 'module.{0}.{1}.{2}{3}.{4:x}.dmp'.format(
+                                    
+                                    dump_path = os.path.join(self._config.DUMP_DIR,
+                                                                 '{0}-{1}-{2}-{3}-{4:x}.dmp'.format(
                                                                      self.get_exe_module(task).BaseDllName,
                                                                      task.UniqueProcessId, mod_name,
                                                                      re.sub(r'\x00', r'', re.sub(r'\/', r'.', sec.Name)), mod_base))
+                                    if self._config.DUMP_DIR:
                                         self.backup_file(dump_path, sec.data)
+                                    if self._config.LOG_MEMORY_PAGES and sec.Name == 'PE':
+                                        if not self._config.DUMP_DIR:
+                                            debug.warning('Warning: Modules are not being dumped to file')
+                                        logfile.write('{},{},{}:{}\n'.format(self._config.optparse_opts.location[7:], dump_path, hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(), ', '.join([str(i) for i in range(0, len(valid_pages)) if valid_pages[i] ])))
+        if self._config.LOG_MEMORY_PAGES:
+            logfile.close()
 
     def compare_hash(self, dump, hash_):
         """Compare hash for every dump Object"""

@@ -39,8 +39,7 @@ Options:
 
     -S: Section to hash
         PE section (-S .text | -S .data,.rsrc)
-        PE header (-S header | -S header,NT_HEADERS)
-        PE section header (-S .text:header | -S .data,.rsrc:header)
+        PE header (-S header | -S .data,header,.rsrc)
         All PE sections including main executable module (-S all)
 
     -s: Hash ASCII strings instead of binary data.
@@ -68,9 +67,9 @@ Options:
 
     --derelocation: De-relocate modules using guided pre-processing when it is posible, else use linear sweep de-relocation
 
+    --log-memory-pages LOGNAME: Log pages which are in memory to LOGNAME
+
 Note:
-    - Supported PE header names (pefile): DOS_HEADER, NT_HEADERS, FILE_HEADER, 
-                                        OPTIONAL_HEADER, header
     - Hashes' file given with -C must contain one hash per line.
     - Params -c and -C can be given multiple times (E.g. vol.py (...) -c <hash1> -c <hash2>)
 
