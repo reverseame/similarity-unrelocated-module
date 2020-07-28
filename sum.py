@@ -413,7 +413,7 @@ class sum(AbstractWindowsCommand):
                                     if self._config.LOG_MEMORY_PAGES and sec.Name == 'PE':
                                         if not self._config.DUMP_DIR:
                                             debug.warning('Warning: Modules are not being dumped to file')
-                                        logfile.write('{},{},{}:{}\n'.format(self._config.optparse_opts.location[7:], dump_path, hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(), ', '.join([str(i) for i in range(0, len(valid_pages)) if valid_pages[i] ])))
+                                        logfile.write('{},{},{},{}:{}\n'.format(self._config.optparse_opts.location[7:], dump_path, hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(), len(valid_pages), ', '.join([str(i) for i in range(0, len(valid_pages)) if valid_pages[i] ])))
         if self._config.LOG_MEMORY_PAGES:
             logfile.close()
 
