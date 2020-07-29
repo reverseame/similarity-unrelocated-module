@@ -335,7 +335,7 @@ class sum(AbstractWindowsCommand):
             acquire_sys_file_handlers(self, conf)
         
         if self._config.LOG_MEMORY_PAGES:
-            if not self._config.SECTION or self._config.SECTION=='all' or 'PE' in self._config.LOG_MEMORY_PAGES:
+            if not self._config.SECTION or self._config.SECTION=='all' or 'PE' in self._config.SECTION:
                 logfile = open(self._config.LOG_MEMORY_PAGES, "w")
             else:
                 debug.warning('Warning: PE is not being dumped')
@@ -352,7 +352,7 @@ class sum(AbstractWindowsCommand):
                         if dlls_expression:
                             if not re.search(dlls_expression, str(mod_name), flags=re.IGNORECASE):
                                 continue
-                        valid_pages = [task_space.is_valid_address(mod.DllBase+i) for i in range(0, mod.SizeOfImage, PAGE_SIZE)]
+                        valid_pages = [task_space.vtop(mod.DllBase+i) for i in range(0, mod.SizeOfImage, PAGE_SIZE)]
                         start = time.time()
                         pe = PeMemory(task_space.zread(mod.DllBase, mod.SizeOfImage), mod.DllBase, valid_pages)
                         end = time.time()
@@ -414,7 +414,7 @@ class sum(AbstractWindowsCommand):
                                         if not self._config.DUMP_DIR:
                                             debug.warning('Warning: Modules are not being dumped to file')
                                         logfile.write('{},{},{},{}:{}\n'.format(self._config.optparse_opts.location[7:], dump_path, hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(), len(valid_pages), ', '.join([str(i) for i in range(0, len(valid_pages)) if valid_pages[i] ])))
-        if self._config.LOG_MEMORY_PAGES:
+        if 'logfile' in locals():
             logfile.close()
 
     def compare_hash(self, dump, hash_):
