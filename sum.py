@@ -401,7 +401,8 @@ class sum(AbstractWindowsCommand):
                                                     vinfo.FileInfo.product_version() if vinfo else '',
                                                     mod.FullDllName, time=self._config.TIME and not (
                                                     self._config.COMPARE_HASH or self._config.COMPARE_FILE),
-                                                    offset=sec.VirtualAddress, size=sec.real_size, pe_memory_time='{0:.20f}'.format(pe_memory_time), pre_processing_time='{0:.20f}'.format(pre_processing_time) if pre_processing_time else None)
+                                                    offset=sec.VirtualAddress, size=sec.real_size, pe_memory_time='{0:.20f}'.format(pe_memory_time), pre_processing_time='{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
+                                                    physical_addresses=valid_pages)
                                     
                                     dump_path = os.path.join(self._config.DUMP_DIR,
                                                                  '{0}-{1}-{2}-{3}-{4:x}.dmp'.format(

@@ -6,7 +6,7 @@ from volatility.renderers.basic import Address
 
 class DLLObject(PrintObject):
     def __init__(self, task, data, hash_engine, mod_base, mod_end, mod_name, section, create_time,
-                 file_version, product_version, path, time, offset, size, pe_memory_time, pre_processing_time):
+                 file_version, product_version, path, time, offset, size, pe_memory_time, pre_processing_time, physical_addresses):
         PrintObject.__init__(self, data, hash_engine)
         self.process = self.get_filename(task)
         self.pid = task.UniqueProcessId
@@ -24,6 +24,7 @@ class DLLObject(PrintObject):
         self.print_time = time
         self.pe_memory_time = pe_memory_time
         self.pre_processing_time = pre_processing_time
+        self.physical_addresses=physical_addresses
 
 
     def get_generator(self):
@@ -49,7 +50,8 @@ class DLLObject(PrintObject):
                 str(self.get_hashing_time()),
                 str(self.get_size()),
                 str(self.pe_memory_time),
-                str(self.pre_processing_time)
+                str(self.pre_processing_time),
+                str(';'.join([page if page else '*' for page in self.physical_addresses]))
             ]
         else:
             return [
@@ -69,7 +71,8 @@ class DLLObject(PrintObject):
                         str(self.get_hash()),
                         str(self.path),
                         str(self._num_page),
-                        str(self._num_valid_pages)
+                        str(self._num_valid_pages),
+                        str(';'.join([str(page) if page else '*' for page in self.physical_addresses]))
                     ]
 
     def get_unified_output(self):
@@ -96,6 +99,7 @@ class DLLObject(PrintObject):
                 ('Size', '30'),
                 ('PE Memory Computation Time', '30'),
                 ('Pre-processing Time', '30'),
+                ('Physical pages', '30'),
 
             ]
         else:
@@ -117,6 +121,7 @@ class DLLObject(PrintObject):
                         ('Path', '46'),
                         ('Num Page', '4'),
                         ('Num Valid Page', '4'),
+                        ('Physical pages', '30'),
                     ]
 
     def _json(self):
@@ -142,6 +147,7 @@ class DLLObject(PrintObject):
         ret['Path'] = str(self.path)
         ret['Num Page'] = str(self._num_page)
         ret['Num Valid Pages'] = str(self._num_valid_pages)
+        ret['Physical pages'] = str(';'.join([str(page) if page else '*' for page in self.physical_addresses]))
 
         if self.print_time:
             ret['Computation Time'] = str(self.get_hashing_time())
