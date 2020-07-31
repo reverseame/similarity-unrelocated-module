@@ -1,6 +1,6 @@
 # Similarity Unrelocated Module - Volatility Plugin
 
-`sum` for Volatility 2.7 undoes modifications done by relocation process on modules (namely, processes of .exe and .dll files) contained in memory dumps. Then it yields a Similarity Digest for each memory page of unrelocated modules.
+`sum` for Volatility 2.6 undoes modifications done by relocation process on modules (namely, processes of .exe and .dll files) contained in memory dumps. Then it yields a Similarity Digest for each memory page of unrelocated modules.
 
 This plugin implements two de-relocation methods: 
 - **Guided De-relocation** uses the `.reloc` section, when it is recoverable from the module dump, to identify the bytes affected by relocation and then de-relocate them.
