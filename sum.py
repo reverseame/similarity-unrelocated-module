@@ -114,8 +114,8 @@ class sum(AbstractWindowsCommand):
             self.hash_engines = self.get_hash_engines()
 
             pids = self.get_processes()
-            if not pids:
-                debug.error('{0}: Could not find any process with those options'.format(self.get_plugin_name()))
+            #if not pids:
+            #    debug.error('{0}: Could not find any process with those options'.format(self.get_plugin_name()))
 
             # Show how many processes are running except for System (pid 4)
             #print(json.dumps({'n_processes': len([x for x in pids if int(x) != 4])}))
@@ -182,7 +182,7 @@ class sum(AbstractWindowsCommand):
             for name in names:
                 mod = self.get_exe_module(proc)
                 if mod:
-                    if re.search(name, str(mod.BaseDllName), flags=re.IGNORECASE):
+                    if re.match(name+'$', str(mod.BaseDllName), flags=re.IGNORECASE):
                         ret += [proc.UniqueProcessId]
         return ret
 
@@ -325,7 +325,7 @@ class sum(AbstractWindowsCommand):
         @returns a list of DLLObject sorted by (pid, mod.BaseAddress)
         """
         if self._config.MODULE_NAME:
-            dlls_expression = '{0}'.format(self._config.MODULE_NAME.replace(',', '|'))
+            dlls_expression = '{0}$'.format(self._config.MODULE_NAME.replace(',', '$|'))
 
         else:
             dlls_expression = None
@@ -350,7 +350,7 @@ class sum(AbstractWindowsCommand):
                     if task_space.is_valid_address(mod_base):
                         mod_name = mod.BaseDllName
                         if dlls_expression:
-                            if not re.search(dlls_expression, str(mod_name), flags=re.IGNORECASE):
+                            if not re.match(dlls_expression, str(mod_name), flags=re.IGNORECASE):
                                 continue
                         valid_pages = [task_space.vtop(mod.DllBase+i) for i in range(0, mod.SizeOfImage, PAGE_SIZE)]
                         start = time.time()
