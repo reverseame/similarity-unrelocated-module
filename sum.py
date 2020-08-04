@@ -39,10 +39,10 @@ class sum(AbstractWindowsCommand):
           -p: Process PID(s). Will hash given processes PIDs.
                 (-p 252 | -p 252,452,2852)
 
-          -n REGEX, --name REGEX: Process expression. Will hash processes that contain REGEX (case insensitive).
+          -n REGEX, --name REGEX: Process expression. Will hash processes that contain REGEX (case sensitive by default).
                 (-n svchost | -n winlogon,.*xplorer)
                 
-          -r REGEX, --module-name REGEX: Module expression. Will hash modules that contain REGEX (case insensitive).
+          -r REGEX, --module-name REGEX: Module expression. Will hash modules that contain REGEX (case sensitive by default).
                 (-r ntdll.dll | -r kernel32.dll,advapi32.dll | -r k.*rnel32.dll)
 
           -A: Algorithm to use. Available: ssdeep, sdhash, tlsh, dcfldd. Default: ssdeep
@@ -64,6 +64,7 @@ class sum(AbstractWindowsCommand):
           -t: Show computation time
 
           -D DIR, --dump-dir=DIR: Temp folder to write all data
+          -i: Consider the search of REGEX expressions as case insensitive
 
           --output-file=<file>: Plugin output will be writen to given file.
           --output=<format>: Output formatting. [text, dot, html, json, sqlite, quick, xlsx]
@@ -103,6 +104,7 @@ class sum(AbstractWindowsCommand):
         self._config.add_option('LINEAR-SWEEP-DERELOCATION', help='De-relocate modules by sweep linear disassembling, recognizing table patterns and de-relocating IAT', action='store_true')
         self._config.add_option('DERELOCATION', short_option='u', help='De-relocate modules using guided pre-processing when it is posible, else use linear sweep de-relocation', action='store_true')
         self._config.add_option('LOG-MEMORY-PAGES', help='Log pages which are in memory to FILE', action='store', type='str')
+        self._config.add_option('SEARCH-CASE', short_option='i', help='Defines the type of case of the REGEX searchs', action='store_true')
         self.reloc_list = {}
         self.files_opened_in_system = {}
 
@@ -177,11 +179,15 @@ class sum(AbstractWindowsCommand):
         """
         ret = []
 
+        re_case_type =0 
+        if self._config.SEARCH_CASE:
+           re_case_type = re.IGNORECASE  
+        
         for proc in tasks.pslist(self.addr_space):
             for name in names:
                 mod = self.get_exe_module(proc)
                 if mod:
-                    if re.match(name+'$', str(mod.BaseDllName), flags=re.IGNORECASE):
+                    if re.match(name+'$', str(mod.BaseDllName), flags=re_case_type):
                         ret += [proc.UniqueProcessId]
         return ret
 
@@ -329,6 +335,10 @@ class sum(AbstractWindowsCommand):
         else:
             dlls_expression = None
 
+        re_case_type = 0 
+        if self._config.SEARCH_CASE:
+           re_case_type = re.IGNORECASE  
+
         if self._config.DERELOCATION or self._config.GUIDED_DERELOCATION:
             # acquiring all dlls and exes that were opened in system
             acquire_sys_file_handlers(self, conf)
@@ -349,7 +359,8 @@ class sum(AbstractWindowsCommand):
                     if task_space.is_valid_address(mod_base):
                         mod_name = mod.BaseDllName
                         if dlls_expression:
-                            if not re.match(dlls_expression, str(mod_name), flags=re.IGNORECASE):
+
+                            if not re.match(dlls_expression, str(mod_name), flags=re_case_type):
                                 continue
                         valid_pages = [task_space.vtop(mod.DllBase+i) for i in range(0, mod.SizeOfImage, PAGE_SIZE)]
                         start = time.time()
