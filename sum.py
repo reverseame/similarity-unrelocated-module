@@ -37,13 +37,13 @@ class sum(AbstractWindowsCommand):
 
         Options:
           -p: Process PID(s). Will hash given processes PIDs.
-                (-P 252 | -P 252,452,2852)
+                (-p 252 | -p 252,452,2852)
 
-          -n REGEX, --name REGEX: Process expression. Will hash processes that contain REGEX.
-                (-E svchost | -E winlogon,explorer)
+          -n REGEX, --name REGEX: Process expression. Will hash processes that contain REGEX (case insensitive).
+                (-n svchost | -n winlogon,.*xplorer)
                 
-          -r REGEX, --module-name REGEX: Module expression. Will hash modules that contain REGEX.
-                (-D ntdll | -D kernel,advapi)
+          -r REGEX, --module-name REGEX: Module expression. Will hash modules that contain REGEX (case insensitive).
+                (-r ntdll.dll | -r kernel32.dll,advapi32.dll | -r k.*rnel32.dll)
 
           -A: Algorithm to use. Available: ssdeep, sdhash, tlsh, dcfldd. Default: ssdeep
                 (-A ssdeep | -A SSDeep | -A SSDEEP,sdHash,TLSH,dcfldd)
@@ -112,7 +112,6 @@ class sum(AbstractWindowsCommand):
             self.addr_space = utils.load_as(self._config)
 
             self.hash_engines = self.get_hash_engines()
-
             pids = self.get_processes()
             #if not pids:
             #    debug.error('{0}: Could not find any process with those options'.format(self.get_plugin_name()))
