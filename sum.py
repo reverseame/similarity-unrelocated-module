@@ -161,7 +161,7 @@ class sum(AbstractWindowsCommand):
 
         if self._config.NAME:
             # Prepare all processes names as regular expresions
-            names = '.*{0}.*'.format(self._config.NAME.replace(',', '.*,.*')).split(',')
+            names = '{0}'.format(self._config.NAME).split(',')
             pids = self.get_proc_by_name(names)
         else:
             pids = self.get_proc_by_pid(self._config.PID)
@@ -325,7 +325,7 @@ class sum(AbstractWindowsCommand):
         @returns a list of DLLObject sorted by (pid, mod.BaseAddress)
         """
         if self._config.MODULE_NAME:
-            dlls_expression = '.*{0}.*'.format(self._config.MODULE_NAME.replace(',', '.*|.*'))
+            dlls_expression = '{0}'.format(self._config.MODULE_NAME.replace(',', '|'))
 
         else:
             dlls_expression = None
