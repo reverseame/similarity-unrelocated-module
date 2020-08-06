@@ -26,7 +26,7 @@ MAX_IMPORT_NAME_LENGTH = 0x200
 MAX_DLL_LENGTH = 0x200
 MAX_SYMBOL_NAME_LENGTH = 0x200
 
-DEBUG = True
+DEBUG = False
 
 # Marks for bytes
 UNKW_BYTE = 0
@@ -50,8 +50,8 @@ DEBUG_DIRECTORY_BYTE = 'Debug Directory' if DEBUG else 17
 COPYRIGHT_DIRECTORY_BYTE = 'Copyright' if DEBUG else 18
 GLOBALPTR_DIRECTORY_BYTE = 'G' if DEBUG else 19
 TLS_DIRECTORY_BYTE = 'TLS directory' if DEBUG else 20
-LOAD_CONFIG_DIRECTORY_BYTE = 'Load Config Directory' if DEBUG else 1
-BOUND_IMPORT_DIRECTORY_BYTE = 'Bound Import Directory' if DEBUG else 1
+LOAD_CONFIG_DIRECTORY_BYTE = 'Load Config Directory' if DEBUG else 51
+BOUND_IMPORT_DIRECTORY_BYTE = 'Bound Import Directory' if DEBUG else 52
 IAT_DIRECTORY_BYTE = 'IAT directory' if DEBUG else 21
 DELAY_IMPORT_DIRECTORY_BYTE = 'Delay Import Directory' if DEBUG else 22
 COM_DESCRIPTOR_DIRECTORY_BYTE = 'COM Descriptor' if DEBUG else 23
@@ -1910,7 +1910,7 @@ class PeMemory(object):
                                            TLS_DIRECTORY_BYTE)
                 TLS.CallBacksList = []
                 RVACallBacks = TLS.AddressOfCallBacks - self.__base_address__
-                while True:
+                while TLS.AddressOfCallBacks:
                     try:
                         CallBack = self.__unpack_data__(self.__IMAGE_TLS_CALLBACK_format__,
                                                         self.__data__[RVACallBacks: RVACallBacks + 4], RVACallBacks,
