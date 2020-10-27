@@ -14,6 +14,7 @@ class DLLObject(PrintObject):
         self.mod_base = mod_base
         self.mod_end = mod_end
         self.mod_name = mod_name
+        self.Wow64 = task.IsWow64
         self.section = section
         self.sec_off = offset
         self.sec_size = size
@@ -37,6 +38,7 @@ class DLLObject(PrintObject):
                 Address(self.mod_base),
                 Address(self.mod_end),
                 str(self.mod_name),
+                int(self.Wow64),
                 str(self.file_version),
                 str(self.product_version),
                 str(self.section),
@@ -62,6 +64,7 @@ class DLLObject(PrintObject):
                         Address(self.mod_base),
                         Address(self.mod_end),
                         str(self.mod_name),
+                        int(self.Wow64),
                         str(self.file_version),
                         str(self.product_version),
                         str(self.section),
@@ -85,6 +88,7 @@ class DLLObject(PrintObject):
                 ('Module Base', '[addr]'),
                 ('Module End', '[addr]'),
                 ('Module Name', '33'),
+                ('Wow64', '6'),
                 ('File Version', '14'),
                 ('Product Version', '10'),
                 ('Section', '18'),
@@ -111,6 +115,7 @@ class DLLObject(PrintObject):
                         ('Module Base', '[addr]'),
                         ('Module End', '[addr]'),
                         ('Module Name', '33'),
+                        ('Wow64', '6'),
                         ('File Version', '14'),
                         ('Product Version', '10'),
                         ('Section', '18'),
@@ -137,6 +142,7 @@ class DLLObject(PrintObject):
         ret['Module Base'] = hex(self.mod_base)
         ret['Module End'] = hex(self.mod_end)
         ret['Module Name'] = str(self.mod_name)
+        ret['Wow64'] = int(self.Wow64)
         ret['File Version'] = str(self.file_version)
         ret['Product Version'] = str(self.product_version)
         ret['Section'] = str(self.section)

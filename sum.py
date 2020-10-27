@@ -16,6 +16,7 @@ from volatility.plugins.common import AbstractWindowsCommand
 import volatility.conf as conf
 
 from pememory import PeMemory, machine_types
+from marked_pefile.marked_pefile import MarkedPE
 from peobject import PEObject
 from dllobject import DLLObject
 from pe_section import PESection
@@ -40,10 +41,13 @@ class sum(AbstractWindowsCommand):
                 (-P 252 | -P 252,452,2852)
 
           -n REGEX, --name REGEX: Process expression. Will hash processes that contain REGEX.
-                (-E svchost | -E winlogon,explorer)
+                (-n svchost | -n winlogon,explorer)
                 
           -r REGEX, --module-name REGEX: Module expression. Will hash modules that contain REGEX.
                 (-D ntdll | -D kernel,advapi)
+
+          --wow64 [0|1]: Filter of Wow64 process.
+                (--wow64 0 | --wow64 1)
 
           -A: Algorithm to use. Available: ssdeep, sdhash, tlsh, dcfldd. Default: ssdeep
                 (-A ssdeep | -A SSDeep | -A SSDEEP,sdHash,TLSH,dcfldd)
@@ -89,6 +93,7 @@ class sum(AbstractWindowsCommand):
         self._config.add_option('PID', short_option='p', help='Process ID', action='store',type='str')
         self._config.add_option('NAME', short_option='n', help='Expression containing process name', action='store', type='str')
         self._config.add_option('MODULE-NAME', short_option='r', help='Modules matching MODULE-NAME', action='store', type='str')
+        self._config.add_option('WOW64', help='Filter of wow64 process', action='store', type='str')
         self._config.add_option('ALGORITHM', short_option='A', default='ssdeep', help='Hash algorithm', action='store', type='str')
         self._config.add_option('SECTION', short_option='S', help='PE section to hash', action='store', type='str')
         self._config.add_option('COMPARE-HASH', short_option='c', help='Compare to given hash', action='append', type='str')
@@ -341,6 +346,12 @@ class sum(AbstractWindowsCommand):
                 debug.warning('Warning: PE is not being dumped')
 
         for task in tasks.pslist(self.addr_space):
+
+            # Wow64 filter
+            if self._config.WOW64:
+                if (self._config.WOW64 == '0' and task.IsWow64) or (self._config.WOW64 == '1' and not task.IsWow64):
+                    continue
+
             if task.UniqueProcessId in pids:
                 task_space = task.get_process_address_space()
                 mods = dict((mod.DllBase.v(), mod) for mod in task.get_load_modules())
@@ -348,16 +359,28 @@ class sum(AbstractWindowsCommand):
                     mod_base = mod.DllBase.v()
                     mod_end = mod_base + mod.SizeOfImage
                     if task_space.is_valid_address(mod_base):
-                        mod_name = mod.BaseDllName
-                        if dlls_expression:
-                            if not re.search(dlls_expression, str(mod_name), flags=re.IGNORECASE):
+                        mod_name = mod.BaseDllName.v()
+                        if dlls_expression and type(mod_name) != obj.NoneObject:
+                            if not re.search(dlls_expression, mod_name, flags=re.IGNORECASE):
                                 continue
                         valid_pages = [task_space.vtop(mod.DllBase+i) for i in range(0, mod.SizeOfImage, PAGE_SIZE)]
-                        start = time.time()
-                        pe = PeMemory(task_space.zread(mod.DllBase, mod.SizeOfImage), mod.DllBase, valid_pages)
-                        end = time.time()
+                        
+                        try:
+                            start = time.time()
+                            pe = MarkedPE(data=task_space.zread(mod.DllBase, mod.SizeOfImage), from_memory=True, valid_pages=valid_pages, base_address=mod.DllBase.v())
+                            end = time.time()
+                        except Exception as e:
+                            print 'ProcessId: {} Mod: {} Error: {}'.format(task.UniqueProcessId, mod_name, e)
+                            continue
 
                         pe_memory_time = end - start
+
+                        #pe2 = MarkedPE(data=task_space.zread(mod.DllBase, mod.SizeOfImage), from_memory=True, valid_pages=valid_pages, base_address=mod.DllBase.v())
+                        if type(mod_name) == obj.NoneObject and hasattr(pe, 'DIRECTORY_ENTRY_EXPORT'):
+                            mod_name = pe.DIRECTORY_ENTRY_EXPORT.name #TODO: use pe
+                            if dlls_expression:
+                                if not re.search(dlls_expression, mod_name, flags=re.IGNORECASE):
+                                    continue
 
                         pe.__modul_name__ = mod_name
                         if self._config.LIST_SECTIONS:
@@ -391,30 +414,34 @@ class sum(AbstractWindowsCommand):
                             # Set the list of sections that match with -S expression
                             sections = self.process_section(task, self._config.SECTION, pe)
                             for sec in sections:
+                                data = sec.get_data()
                                 for engine in self.hash_engines:
                                     vinfo = obj.Object("_IMAGE_DOS_HEADER", mod.DllBase, task_space).get_version_info()
                                     create_time = str(task.CreateTime) if self._config.HUMAN_READABLE else int(
                                         task.CreateTime)
-                                    yield DLLObject(task, sec.data, engine, mod_base, mod_end, mod_name,
+                                        
+                                    yield DLLObject(task, data, engine, mod_base, mod_end, mod_name,
                                                     sec.Name, create_time,
                                                     vinfo.FileInfo.file_version() if vinfo else '',
                                                     vinfo.FileInfo.product_version() if vinfo else '',
-                                                    mod.FullDllName, time=self._config.TIME and not (
+                                                    mod.FullDllName.v() if type(mod.FullDllName.v()) != obj.NoneObject else '', time=self._config.TIME and not (
                                                     self._config.COMPARE_HASH or self._config.COMPARE_FILE),
-                                                    offset=sec.VirtualAddress, size=sec.real_size, pe_memory_time='{0:.20f}'.format(pe_memory_time), pre_processing_time='{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
+                                                    offset=sec.VirtualAddress, size=len(data), pe_memory_time='{0:.20f}'.format(pe_memory_time), pre_processing_time='{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
                                                     physical_addresses=valid_pages)
                                     
                                     dump_path = os.path.join(self._config.DUMP_DIR,
                                                                  '{0}-{1}-{2}-{3}-{4:x}.dmp'.format(
-                                                                     self.get_exe_module(task).BaseDllName,
+                                                                     self.get_exe_module(task).BaseDllName.v(),
                                                                      task.UniqueProcessId, mod_name,
                                                                      re.sub(r'\x00', r'', re.sub(r'\/', r'.', sec.Name)), mod_base))
                                     if self._config.DUMP_DIR:
-                                        self.backup_file(dump_path, sec.data)
+                                        self.backup_file(dump_path, data)
                                     if self._config.LOG_MEMORY_PAGES and sec.Name == 'PE':
                                         if not self._config.DUMP_DIR:
                                             debug.warning('Warning: Modules are not being dumped to file')
                                         logfile.write('{},{},{},{}:{}\n'.format(self._config.optparse_opts.location[7:], dump_path, hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(), len(valid_pages), ', '.join([str(i) for i in range(0, len(valid_pages)) if valid_pages[i] ])))
+                                    
+                                del data
         if 'logfile' in locals():
             logfile.close()
 
