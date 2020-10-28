@@ -381,6 +381,7 @@ class sum(AbstractWindowsCommand):
                                     continue
 
                         pe.__modul_name__ = mod_name
+                        preprocess = 'Raw'
                         if self._config.LIST_SECTIONS:
                             yield PESection(mod_name, self.get_pe_sections(pe), task.UniqueProcessId, mod_base)
                         else:
@@ -393,8 +394,10 @@ class sum(AbstractWindowsCommand):
                                     start = time.time()
                                     guided_derelocation(pe, reloc)
                                     end = time.time()
-
+                                    
                                     pre_processing_time = end - start
+                                    
+                                    preprocess = 'Guided'
                                 else:
                                     debug.warning('Warning: {0}\'s reloc section cannot be found.'.format(mod_name))
                                     if self._config.GUIDED_DERELOCATION:
@@ -406,6 +409,8 @@ class sum(AbstractWindowsCommand):
                                 end = time.time()
 
                                 pre_processing_time = end - start
+
+                                preprocess = 'Linear'
 
                             # Generate one dump Object for every section/header specified
 
@@ -425,7 +430,7 @@ class sum(AbstractWindowsCommand):
                                                     mod.FullDllName.v() if type(mod.FullDllName.v()) != obj.NoneObject else '', time=self._config.TIME and not (
                                                     self._config.COMPARE_HASH or self._config.COMPARE_FILE),
                                                     offset=sec.VirtualAddress, size=len(data), pe_memory_time='{0:.20f}'.format(pe_memory_time), pre_processing_time='{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
-                                                    physical_addresses=valid_pages)
+                                                    physical_addresses=valid_pages, preprocess=preprocess)
                                     
                                     dump_path = os.path.join(self._config.DUMP_DIR,
                                                                  '{0}-{1}-{2}-{3}-{4:x}.dmp'.format(

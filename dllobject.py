@@ -6,7 +6,7 @@ from volatility.renderers.basic import Address
 
 class DLLObject(PrintObject):
     def __init__(self, task, data, hash_engine, mod_base, mod_end, mod_name, section, create_time,
-                 file_version, product_version, path, time, offset, size, pe_memory_time, pre_processing_time, physical_addresses):
+                 file_version, product_version, path, time, offset, size, pe_memory_time, pre_processing_time, physical_addresses, preprocess):
         PrintObject.__init__(self, data, hash_engine)
         self.process = self.get_filename(task)
         self.pid = task.UniqueProcessId
@@ -26,6 +26,7 @@ class DLLObject(PrintObject):
         self.pe_memory_time = pe_memory_time
         self.pre_processing_time = pre_processing_time
         self.physical_addresses=physical_addresses
+        self.preprocess = preprocess
 
 
     def get_generator(self):
@@ -45,6 +46,7 @@ class DLLObject(PrintObject):
                 Address(self.sec_off),
                 Address(self.sec_size),
                 str(self.get_algorithm()),
+                self.preprocess,
                 str(self.get_hash()),
                 str(self.path),
                 str(self._num_page),
@@ -71,6 +73,7 @@ class DLLObject(PrintObject):
                         Address(self.sec_off),
                         Address(self.sec_size),
                         str(self.get_algorithm()),
+                        self.preprocess,
                         str(self.get_hash()),
                         str(self.path),
                         str(self._num_page),
@@ -95,6 +98,7 @@ class DLLObject(PrintObject):
                 ('Section Offset', '[addr]'),
                 ('Section Size', '[addr]'),
                 ('Algorithm', '6'),
+                ('Pre-process', '6'),
                 ('Generated Hash', '100'),
                 ('Path', '46'),
                 ('Num Page', '4'),
@@ -122,6 +126,7 @@ class DLLObject(PrintObject):
                         ('Section Offset', '[addr]'),
                         ('Section Size', '[addr]'),
                         ('Algorithm', '6'),
+                        ('Pre-process', '6'),
                         ('Generated Hash', '100'),
                         ('Path', '46'),
                         ('Num Page', '4'),
@@ -149,6 +154,7 @@ class DLLObject(PrintObject):
         ret['Section Offset'] = hex(self.sec_off)
         ret['Section Size'] = int(self.sec_size)
         ret['Algorithm'] = str(self.get_algorithm())
+        ret['Pre-process'] = str(self.prepocess)
         ret['Generated Hash'] = str(self.get_hash())
         ret['Path'] = str(self.path)
         ret['Num Page'] = str(self._num_page)

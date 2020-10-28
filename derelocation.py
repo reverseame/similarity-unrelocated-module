@@ -727,42 +727,49 @@ def get_pe_from_file_object(self, file_obj):
 
 def get_normalized_module_name(mod):
     # Normalizing module name
-    if str(mod.FullDllName)[0] != '\\':  # "C:\folder1\folder2\.." or "D:\folder1\folder2\.."
-        return str(mod.FullDllName).lower()[2::]
-    elif re.search(r'\\SystemRoot', str(mod.FullDllName), re.I):  # "\SystemRoot\FolderX\.."
-        return re.sub(r'^\\SystemRoot\\', r'\\Windows\\', str(mod.FullDllName)).lower()
+    if mod.FullDllName:
+        if str(mod.FullDllName)[0] != '\\':  # "C:\folder1\folder2\.." or "D:\folder1\folder2\.."
+            return str(mod.FullDllName).lower()[2::]
+        elif re.search(r'\\SystemRoot', str(mod.FullDllName), re.I):  # "\SystemRoot\FolderX\.."
+            return re.sub(r'^\\SystemRoot\\', r'\\Windows\\', str(mod.FullDllName)).lower()
+        else:
+            debug.debug('Warning: Module name pattern not recognized for {0}'.format(str(mod.FullDllName)))
+            return str(mod.FullDllName).lower()
     else:
-        debug.debug('Warning: Module name pattern not recognized for {0}'.format(str(mod.FullDllName)))
-        return str(mod.FullDllName).lower()
+        return None
 
 def get_reloc_section(self, mod):
     mod_sys_name = get_normalized_module_name(mod)
-    reloc_data = self.reloc_list.get(mod_sys_name)  # Retrieving reloc section previously found
-    if not reloc_data:
-        file_handler = self.files_opened_in_system.get(mod_sys_name)  # Finding file handler
-        if file_handler:
-            try:
-                pe = get_pe_from_file_object(self, file_handler)
-                if pe:
-                    reloc_section = get_section(pe, '.reloc')
-                    if reloc_section:
-                        reloc_data = reloc_section.get_data()
-                    if reloc_data and valid_section(reloc_data):
-                        self.reloc_list[mod_sys_name] = reloc_data
+    if mod_sys_name:
+        reloc_data = self.reloc_list.get(mod_sys_name)  # Retrieving reloc section previously found
+        if not reloc_data:
+            file_handler = self.files_opened_in_system.get(mod_sys_name)  # Finding file handler
+            if file_handler:
+                try:
+                    pe = get_pe_from_file_object(self, file_handler)
+                    if pe:
+                        reloc_section = get_section(pe, '.reloc')
+                        if reloc_section:
+                            reloc_data = reloc_section.get_data()
+                        if reloc_data and valid_section(reloc_data):
+                            self.reloc_list[mod_sys_name] = reloc_data
+                        else:
+                            self.reloc_list[mod_sys_name] = None
+                            debug.debug('Invalid reloc section for {0}\n'.format(file_handler.FileName))
+                            return None
                     else:
-                        self.reloc_list[mod_sys_name] = None
-                        debug.debug('Invalid reloc section for {0}\n'.format(file_handler.FileName))
-                        return None
-                else:
-                    debug.debug('Error: PEfile coulde not be created for {0}\n'.format(file_handler.FileName))
-                del pe
-            except PEFormatError as e:
-                debug.debug('Error retrieving Reloc for {0}\n'.format(file_handler.FileName))
-                self.reloc_list[mod_sys_name] = None
-                return None
-        else:
-            debug.debug('{0} does not have file_handler\n'.format(mod_sys_name))
-    return reloc_data
+                        debug.debug('Error: PEfile coulde not be created for {0}\n'.format(file_handler.FileName))
+                    del pe
+                except PEFormatError as e:
+                    debug.debug('Error retrieving Reloc for {0}\n'.format(file_handler.FileName))
+                    self.reloc_list[mod_sys_name] = None
+                    return None
+            else:
+                debug.debug('{0} does not have file_handler\n'.format(mod_sys_name))
+        return reloc_data
+    else: 
+        debug.debug('Error retrieving module name\n')
+        return None
 
 def acquire_sys_file_handlers(PFH, conf):
     ''' Acquiring all dlls and exes that were opened in system
