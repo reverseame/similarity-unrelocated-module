@@ -15,7 +15,7 @@ import volatility.win32.modules as modules
 from volatility.plugins.common import AbstractWindowsCommand
 import volatility.conf as conf
 
-from pememory import PeMemory, machine_types
+#from pememory import PeMemory, machine_types
 from marked_pefile.marked_pefile import MarkedPE
 from peobject import PEObject
 from dllobject import DLLObject
