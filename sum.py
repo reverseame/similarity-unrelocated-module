@@ -375,7 +375,6 @@ class sum(AbstractWindowsCommand):
 
                         pe_memory_time = end - start
 
-                        #pe2 = MarkedPE(data=task_space.zread(mod.DllBase, mod.SizeOfImage), from_memory=True, valid_pages=valid_pages, base_address=mod.DllBase.v())
                         if type(mod_name) == obj.NoneObject and hasattr(pe, 'DIRECTORY_ENTRY_EXPORT'):
                             mod_name = pe.DIRECTORY_ENTRY_EXPORT.name #TODO: use pe
                             if dlls_expression:

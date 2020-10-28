@@ -14,6 +14,12 @@ apt-get install -y $systemdeps
 # Install python dependencies
 pip2 install $pythondeps
 
+# Marked Pefile
+git clone git@github.com:miguelmartinperez/markedPefile.git marked_pefile
+cd marked_pefile
+sh installdeps.sh
+cd ..
+
 # Install TLSH
 git clone "https://github.com/trendmicro/tlsh.git" /tmp/tlsh/
 oldpwd=$(pwd)
