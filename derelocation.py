@@ -1,15 +1,13 @@
 import re
 import struct
 from struct import unpack
-import pefile
+from marked_pefile.marked_pefile import OPTIONAL_HEADER_MAGIC_PE, MARKS, PeMemError, PEFormatError
 import volatility.plugins as plugins
 import volatility.debug as debug
 import volatility.utils as utils
 from capstone import Cs, CS_ARCH_X86, CS_MODE_32, CS_MODE_64
 from capstone.x86_const import X86_OP_MEM, X86_OP_IMM
-
-from pememory import UNKW_BYTE, all_zeros, NULL_PAGE, INSTRUCTION_BYTE, JUMPED_BYTE, PeMemError, PRE_TABLE, TABLE, \
-    STRING_ASCII, STRING_UNICODE, OPTIONAL_HEADER_MAGIC_PE
+import pefile
 
 PAGE_SIZE = 4096
 NUM_PAD_ELEMENTS = 4
@@ -22,10 +20,10 @@ LIMIT_UNICODE_STRING_LEN = 5
 # LINEAR SWEEP DE-RELOCATION
 def derelocation_OptionalHeader_ImageBase(pe):
     if pe.NT_HEADERS.OPTIONAL_HEADER.Magic == OPTIONAL_HEADER_MAGIC_PE:  # X86
-        rva_BaseOfCode = pe.NT_HEADERS.OPTIONAL_HEADER.__offset__ + 28
+        rva_BaseOfCode = pe.NT_HEADERS.OPTIONAL_HEADER.get_file_offset() + 28
         pe.set_zero_word(rva_BaseOfCode)
     else:
-        rva_BaseOfCode = pe.NT_HEADERS.OPTIONAL_HEADER.__offset__ + 24
+        rva_BaseOfCode = pe.NT_HEADERS.OPTIONAL_HEADER.get_file_offset() + 24
         pe.set_zero_double_word(rva_BaseOfCode)
 
 def derelocation_delay_import(pe):
@@ -49,168 +47,168 @@ def derelocation_LoadConfig(pe):
             if pe.NT_HEADERS.OPTIONAL_HEADER.Magic == OPTIONAL_HEADER_MAGIC_PE:  # X86
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 36:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.LockPrefixTable:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+32)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+32)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 60:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.EditList:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+56)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+56)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 64:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.SecurityCookie:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+60)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+60)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 68:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.SEHandlerTable:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+64)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+64)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 76:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardCFCheckFunctionPointer:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+72)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+72)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 80:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardCFDispatchFunctionPointer:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+76)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+76)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 84:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardCFFunctionTable:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+80)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+80)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 108:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardAddressTakenIatEntryTable:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+108)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+108)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 116:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardLongJumpTargetTable:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+116)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+116)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 124:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.DynamicValueRelocTable:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+120)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+120)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 128:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.CHPEMetadataPointer:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__+124)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset()+124)
                 else:
                     return
 
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 132:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardRFFailureRoutine:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 128)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 128)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 136:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardRFFailureRoutineFunctionPointer:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 132)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 132)
                 else:
                     return
 
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 148:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardRFVerifyStackPointerFunctionPointer:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 144)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 144)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 160:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.EnclaveConfigurationPointer:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 156)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 156)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 164:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.VolatileMetadataPointer:
-                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 160)
+                        pe.set_zero_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 160)
                 else:
                     return
 
             else:
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 48:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.LockPrefixTable:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 40)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 40)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 88:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.EditList:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 80)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 80)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 96:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.SecurityCookie:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 88)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 88)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 104:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.SEHandlerTable:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 96)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 96)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 120:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardCFCheckFunctionPointer:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 112)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 112)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 128:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardCFDispatchFunctionPointer:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 120)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 120)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 136:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardCFFunctionTable:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 128)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 128)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 168:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardAddressTakenIatEntryTable:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 160)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 160)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 184:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardLongJumpTargetTable:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 176)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 176)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 200:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.DynamicValueRelocTable:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 192)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 192)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 208:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.CHPEMetadataPointer:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 200)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 200)
                 else:
                     return
 
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 216:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardRFFailureRoutine:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 208)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 208)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 224:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardRFFailureRoutineFunctionPointer:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 216)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 216)
                 else:
                     return
 
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 240:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.GuardRFVerifyStackPointerFunctionPointer:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 232)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 232)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 256:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.EnclaveConfigurationPointer:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 248)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 248)
                 else:
                     return
                 if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.Size >= 264:
                     if pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.VolatileMetadataPointer:
-                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.__offset__ + 256)
+                        pe.set_zero_double_word(pe.NT_HEADERS.OPTIONAL_HEADER.DATA_DIRECTORY[10].directory.get_file_offset() + 256)
                 else:
                     return
     except Exception as e:
@@ -244,20 +242,20 @@ def derelocation_code_86(pe):
     end_string = False
     while index < code_section.VirtualAddress + code_section.real_size:
         for byte_index in range(index, code_section.VirtualAddress + code_section.real_size, 2):
-            if pe.__visited__[byte_index] == UNKW_BYTE:
+            if pe.__visited__[byte_index] == MARKS['UNKW_BYTE']:
                 if 32 <= ord(pe.__data__[byte_index]) <= 122 and pe.__data__[byte_index + 1] == '\x00':
                     if end_string:
                         if string_len >= LIMIT_UNICODE_STRING_LEN:
-                            pe.set_visited(index, (string_len + pad_after_string) * 2, STRING_UNICODE)
+                            pe.set_visited(pointer=index, size=(string_len + pad_after_string) * 2, tag=MARKS['STRING_UNICODE'])
                             address = struct.unpack('I', pe.__data__[index - 4:index])[0]
                             if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
                                 pe.set_zero_word(index - 4)
-                                pe.set_visited(index - 4, 4, STRING_UNICODE)
+                                pe.set_visited(pointer=index - 4, size=4, tag=MARKS['STRING_UNICODE'])
                             elif address == 2425393296:
                                 address = struct.unpack('I', pe.__data__[index - 8:index - 4])[0]
                                 if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
                                     pe.set_zero_word(index - 8)
-                                    pe.set_visited(index - 8, 8, STRING_UNICODE)
+                                    pe.set_visited(pointer=index - 8, size=8, tag=MARKS['STRING_UNICODE'])
                         index = byte_index
                         string_len = 1
                         pad_after_string = 0
@@ -286,16 +284,16 @@ def derelocation_code_86(pe):
                         end_string = False
                 else:
                     if string_len >= LIMIT_UNICODE_STRING_LEN and end_string:
-                        pe.set_visited(index, (string_len + pad_after_string) * 2, STRING_UNICODE)
+                        pe.set_visited(pointer=index, size=(string_len + pad_after_string) * 2, tag=MARKS['STRING_UNICODE'])
                         address = struct.unpack('I', pe.__data__[index - 4:index])[0]
                         if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
                             pe.set_zero_word(index - 4)
-                            pe.set_visited(index - 4, 4, STRING_UNICODE)
+                            pe.set_visited(pointer=index - 4, size=4, tag=MARKS['STRING_UNICODE'])
                         elif address == 2425393296:
                             address = struct.unpack('I', pe.__data__[index - 8:index - 4])[0]
                             if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
                                 pe.set_zero_word(index - 8)
-                                pe.set_visited(index - 8, 8, STRING_UNICODE)
+                                pe.set_visited(pointer=index - 8, size=8, tag=MARKS['STRING_UNICODE'])
 
                     index = byte_index + 2
                     string_len = 0
@@ -303,20 +301,20 @@ def derelocation_code_86(pe):
                     end_string = False
             else:
                 if string_len >= LIMIT_UNICODE_STRING_LEN:
-                    pe.set_visited(index, string_len + pad_after_string * 2, STRING_UNICODE)
+                    pe.set_visited(pointer=index, size=string_len + pad_after_string * 2, tag=MARKS['STRING_UNICODE'])
                     address = struct.unpack('I', pe.__data__[index - 4:index])[0]
                     if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
                         pe.set_zero_word(index - 4)
-                        pe.set_visited(index - 4, 4, STRING_UNICODE)
+                        pe.set_visited(pointer=index - 4, size=4, tag=MARKS['STRING_UNICODE'])
                     elif address == 2425393296:
                         address = struct.unpack('I', pe.__data__[index - 8:index - 4])[0]
                         if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
                             pe.set_zero_word(index - 8)
-                            pe.set_visited(index - 8, 8, STRING_UNICODE)
+                            pe.set_visited(pointer=index - 8, size=8, tag=MARKS['STRING_UNICODE'])
                 try:
                     index = byte_index + pe.__visited__[
                                          byte_index:code_section.VirtualAddress + code_section.real_size].index(
-                        UNKW_BYTE)
+                        MARKS['UNKW_BYTE'])
                 except ValueError as e:
                     index = code_section.VirtualAddress + code_section.real_size
                 string_len = 0
@@ -331,11 +329,11 @@ def derelocation_code_86(pe):
     end_string = False
     while index < code_section.VirtualAddress + code_section.real_size:
         for byte_index in range(index, code_section.VirtualAddress + code_section.real_size):
-            if pe.__visited__[byte_index] == UNKW_BYTE:
+            if pe.__visited__[byte_index] == MARKS['UNKW_BYTE']:
                 if 32 <= ord(pe.__data__[byte_index]) <= 122:
                     if end_string:
                         if string_len >= LIMIT_ASCII_STRING_LEN and byte_index % 2 == 0:
-                            pe.set_visited(index, string_len+pad_after_string, STRING_ASCII)
+                            pe.set_visited(pointer=index, size=string_len+pad_after_string, tag=MARKS['STRING_ASCII'])
                         index = byte_index
                         string_len = 1
                         pad_after_string = 0
@@ -369,16 +367,16 @@ def derelocation_code_86(pe):
                         end_string = False
                 else:
                     if string_len >= LIMIT_ASCII_STRING_LEN and end_string and byte_index % 2 == 0:
-                        pe.set_visited(index, string_len + pad_after_string, STRING_ASCII)
+                        pe.set_visited(pointer=index, size=string_len + pad_after_string, tag=MARKS['STRING_ASCII'])
                     index = byte_index + 1
                     string_len = 0
                     pad_after_string = 0
                     end_string = False
             else:
                 if string_len >= LIMIT_ASCII_STRING_LEN:
-                    pe.set_visited(index, string_len + pad_after_string, STRING_ASCII)
+                    pe.set_visited(pointer=index, size=string_len + pad_after_string, tag=MARKS['STRING_ASCII'])
                 try:
-                    index = byte_index + pe.__visited__[byte_index:code_section.VirtualAddress + code_section.real_size].index(UNKW_BYTE)
+                    index = byte_index + pe.__visited__[byte_index:code_section.VirtualAddress + code_section.real_size].index(MARKS['UNKW_BYTE'])
                 except ValueError as e:
                     index = code_section.VirtualAddress + code_section.real_size
                 string_len = 0
@@ -397,23 +395,23 @@ def derelocation_code_86(pe):
             if num_elements > ELEMENTS_TO_TABLE:
                 not_visited = True
                 for index_byte in range(index - 4 * (NUM_PAD_ELEMENTS - padding_elements), index + 4):
-                    if pe.__visited__[index_byte] != UNKW_BYTE:
+                    if pe.__visited__[index_byte] != MARKS['UNKW_BYTE']:
                         not_visited = False
 
                 if not_visited:
-                    pe.set_visited(index, 4, TABLE)
+                    pe.set_visited(pointer=index, size=4, tag=MARKS['TABLE'])
                     pe.set_zero_word(index)
                     if padding_elements != NUM_PAD_ELEMENTS:
-                        pe.set_visited(index - 4 * (NUM_PAD_ELEMENTS - padding_elements),
-                                       4 * (NUM_PAD_ELEMENTS - padding_elements), TABLE)
+                        pe.set_visited(pointer=index - 4 * (NUM_PAD_ELEMENTS - padding_elements),
+                                       size=4 * (NUM_PAD_ELEMENTS - padding_elements), tag=MARKS['TABLE'])
             elif num_elements == ELEMENTS_TO_TABLE:
                 not_visited = True
                 for index_byte in range(previous_element[0], index + 4):
-                    if pe.__visited__[index_byte] != UNKW_BYTE:
+                    if pe.__visited__[index_byte] != MARKS['UNKW_BYTE']:
                         not_visited = False
 
                 if not_visited:
-                    pe.set_visited(previous_element[0], index - previous_element[0] + 4, TABLE)
+                    pe.set_visited(pointer=previous_element[0], size=index - previous_element[0] + 4, tag=MARKS['TABLE'])
                     for element in previous_element:
                         pe.set_zero_word(element)
                     pe.set_zero_word(index)
@@ -426,12 +424,12 @@ def derelocation_code_86(pe):
                 not_visited = True
                 for index_byte in range(
                         index - 4 * (NUM_PAD_ELEMENTS - padding_elements) - 4, index - 4):
-                    if pe.__visited__[index_byte] != UNKW_BYTE:
+                    if pe.__visited__[index_byte] != MARKS['UNKW_BYTE']:
                         not_visited = False
 
                 if not_visited:
-                    pe.set_visited(index - 4 * (NUM_PAD_ELEMENTS - padding_elements) - 4,
-                               4 * (NUM_PAD_ELEMENTS - padding_elements), TABLE)
+                    pe.set_visited(pointer=index - 4 * (NUM_PAD_ELEMENTS - padding_elements) - 4,
+                               size=4 * (NUM_PAD_ELEMENTS - padding_elements), tag=MARKS['TABLE'])
             num_elements = 0
             previous_element = []
             padding_elements = NUM_PAD_ELEMENTS
@@ -455,21 +453,21 @@ def derelocation_code_86(pe):
             address = struct.unpack('I', pe.__data__[index:index + 4])[0]
             try:
                 if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
-                    pe.set_visited(index-4, 12, PRE_TABLE)
+                    pe.set_visited(pointer=index-4, size=12, tag=MARKS['PRE_TABLE'])
                     pe.set_zero_word(index)
                     address = struct.unpack('I', pe.__data__[index + 4:index + 8])[0]
                     if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
-                        pe.set_visited(index + 4, 4, PRE_TABLE)
+                        pe.set_visited(pointer=index + 4, size=4, tag=MARKS['PRE_TABLE'])
                         pe.set_zero_word(index+4)
                 else:
                     address = struct.unpack('I', pe.__data__[index + 4:index + 8])[0]
                     if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
                         not_visited = True
                         for index_byte in range(index-4, index-4 +16):
-                            if pe.__visited__[index_byte] != UNKW_BYTE:
+                            if pe.__visited__[index_byte] != MARKS['UNKW_BYTE']:
                                 not_visited = False
                         if not_visited:
-                            pe.set_visited(index-4, 16, PRE_TABLE)
+                            pe.set_visited(pointer=index-4, size=16, tag=MARKS['PRE_TABLE'])
                             pe.set_zero_word(index + 4)
             except PeMemError as e:
                 pass
@@ -486,9 +484,9 @@ def derelocation_code_86(pe):
 
     code_rva_offset = code_section.VirtualAddress
     while code_rva_offset < code_section.VirtualAddress + code_section.real_size and \
-            UNKW_BYTE in pe.__visited__[code_rva_offset:code_section.VirtualAddress + code_section.real_size]:
+            MARKS['UNKW_BYTE'] in pe.__visited__[code_rva_offset:code_section.VirtualAddress + code_section.real_size]:
 
-        code_rva_offset = code_rva_offset + pe.__visited__[code_rva_offset:code_section.VirtualAddress + code_section.real_size].index(UNKW_BYTE)
+        code_rva_offset = code_rva_offset + pe.__visited__[code_rva_offset:code_section.VirtualAddress + code_section.real_size].index(MARKS['UNKW_BYTE'])
         # Finding the longest sequence of instructions
         instruction_vector = [0] * 15 # Max length of a intel instruction
         inst_adds = []
@@ -499,7 +497,7 @@ def derelocation_code_86(pe):
             for inst in md.disasm(pe.__data__[code_rva_offset + instuction_index:code_section.real_size], code_rva_offset + instuction_index):
                 break_loop = False
                 for inst_byte in range(inst.address, inst.address+inst.size):
-                    if pe.__visited__[inst_byte] != UNKW_BYTE:
+                    if pe.__visited__[inst_byte] != MARKS['UNKW_BYTE']:
                         break_loop = True
                 if break_loop:
                     break
@@ -518,14 +516,14 @@ def derelocation_code_86(pe):
         longest_index = instruction_vector.index(max_length)
         for byte in range(code_rva_offset, code_rva_offset + longest_index):
             try:
-                pe.set_visited(byte, 1, JUMPED_BYTE)
+                pe.set_visited(pointer=byte, size=1, tag=['JUMPED_BYTE'])
             except PeMemError as e:
-                if e.code == NULL_PAGE:
+                if e.code == MARKS['NULL_PAGE']:
                     break
         for inst in md.disasm(pe.__data__[code_rva_offset + longest_index:code_rva_offset + longest_index + max_length], code_rva_offset+longest_index):
             #print "{}\t{}\t{}".format(hex(inst.address), inst.mnemonic, inst.op_str)
             try:
-                pe.set_visited(inst.address, inst.size, INSTRUCTION_BYTE)
+                pe.set_visited(pointer=inst.address, size=inst.size, tag=MARKS['INSTRUCTION_BYTE'])
                 for operand in inst.operands:
                     # ToDo: Check coverage of all instruction
                     if operand.type == X86_OP_MEM and operand.mem.disp != 0 and pe.__base_address__ <= operand.mem.disp <= pe.__base_address__ + pe.__size__:
@@ -533,11 +531,11 @@ def derelocation_code_86(pe):
                     if operand.type == X86_OP_IMM and pe.__base_address__ <= operand.imm <= pe.__base_address__ + pe.__size__:
                         pe.set_zero_word(inst.address + inst.imm_offset)
             except PeMemError as e:
-                if e.code == NULL_PAGE:
+                if e.code == MARKS['NULL_PAGE']:
                     break
                 else:
                     raise e
-        if pe.__visited__[code_rva_offset] == UNKW_BYTE:
+        if pe.__visited__[code_rva_offset] == MARKS['UNKW_BYTE']:
             code_rva_offset += 1
 
 def derelocation_code_64(pe):
@@ -719,7 +717,7 @@ def get_pe_from_file_object(self, file_obj):
                 pe = pefile.PE(data=output, fast_load=True)
                 del output
                 return pe
-            except pefile.PEFormatError:
+            except PEFormatError:
                 pass
         else:
             return None
@@ -758,7 +756,7 @@ def get_reloc_section(self, mod):
                 else:
                     debug.debug('Error: PEfile coulde not be created for {0}\n'.format(file_handler.FileName))
                 del pe
-            except pefile.PEFormatError as e:
+            except PEFormatError as e:
                 debug.debug('Error retrieving Reloc for {0}\n'.format(file_handler.FileName))
                 self.reloc_list[mod_sys_name] = None
                 return None
