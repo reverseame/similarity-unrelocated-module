@@ -154,7 +154,7 @@ class DLLObject(PrintObject):
         ret['Section Offset'] = hex(self.sec_off)
         ret['Section Size'] = int(self.sec_size)
         ret['Algorithm'] = str(self.get_algorithm())
-        ret['Pre-process'] = str(self.prepocess)
+        ret['Pre-process'] = str(self.preprocess)
         ret['Generated Hash'] = str(self.get_hash())
         ret['Path'] = str(self.path)
         ret['Num Page'] = str(self._num_page)
