@@ -799,7 +799,7 @@ def guided_derelocation(pe, reloc):
         pass
 
     while block_size != 0:
-        for reloc_typ_add in unpack('H'*((block_size-8)/2), reloc[index+8:index+block_size]):
+        for reloc_typ_add in unpack('H'*(len(reloc[index+8:index+block_size]) / 2), reloc[index+8:index+block_size]):
             reloc_type = (reloc_typ_add & 0xF000) >> 12
             reloc_offset = (reloc_typ_add & 0x0FFF)
             if RVA_page + reloc_offset >= len(pe.__data__):  # Out of range

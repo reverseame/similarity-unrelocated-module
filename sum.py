@@ -262,7 +262,7 @@ class sum(AbstractWindowsCommand):
 
         section_expr = section_expr.split(',')
         if 'all' in section_expr:
-            return pe.sections
+            return pe.sections[:-1]
         else:
             for section in pe.sections:
                 for expresion in section_expr:

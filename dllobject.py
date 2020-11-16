@@ -55,7 +55,7 @@ class DLLObject(PrintObject):
                 str(self.get_size()),
                 str(self.pe_memory_time),
                 str(self.pre_processing_time),
-                str(';'.join([page if page else '*' for page in self.physical_addresses]))
+                str(';'.join([hex(page).rstrip("L") if page else '*' for page in self.physical_addresses]))
             ]
         else:
             return [
@@ -78,7 +78,7 @@ class DLLObject(PrintObject):
                         str(self.path),
                         str(self._num_page),
                         str(self._num_valid_pages),
-                        str(';'.join([str(page) if page else '*' for page in self.physical_addresses]))
+                        str(';'.join([hex(page).rstrip("L") if page else '*' for page in self.physical_addresses]))
                     ]
 
     def get_unified_output(self):
@@ -159,7 +159,7 @@ class DLLObject(PrintObject):
         ret['Path'] = str(self.path)
         ret['Num Page'] = str(self._num_page)
         ret['Num Valid Pages'] = str(self._num_valid_pages)
-        ret['Physical pages'] = str(';'.join([str(page) if page else '*' for page in self.physical_addresses]))
+        ret['Physical pages'] = str(';'.join([hex(page).rstrip("L") if page else '*' for page in self.physical_addresses]))
 
         if self.print_time:
             ret['Computation Time'] = str(self.get_hashing_time())
