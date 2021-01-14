@@ -516,7 +516,7 @@ def derelocation_code_86(pe):
         longest_index = instruction_vector.index(max_length)
         for byte in range(code_rva_offset, code_rva_offset + longest_index):
             try:
-                pe.set_visited(pointer=byte, size=1, tag=['JUMPED_BYTE'])
+                pe.set_visited(pointer=byte, size=1, tag=MARKS['JUMPED_BYTE'])
             except PeMemError as e:
                 if e.code == MARKS['NULL_PAGE']:
                     break

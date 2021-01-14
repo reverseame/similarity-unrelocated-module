@@ -37,7 +37,7 @@ class sum(AbstractWindowsCommand):
 
         Options:
           -p: Process PID(s). Will hash given processes PIDs.
-                (-P 252 | -P 252,452,2852)
+                (-p 252 | -p 252,452,2852)
 
           -n REGEX, --name REGEX: Process expression. Will hash processes that contain REGEX.
                 (-n svchost | -n winlogon,explorer)
@@ -430,7 +430,7 @@ class sum(AbstractWindowsCommand):
                                                     mod.FullDllName.v() if type(mod.FullDllName.v()) != obj.NoneObject else '', time=self._config.TIME and not (
                                                     self._config.COMPARE_HASH or self._config.COMPARE_FILE),
                                                     offset=sec.VirtualAddress, size=len(data), pe_memory_time='{0:.20f}'.format(pe_memory_time), pre_processing_time='{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
-                                                    physical_addresses=valid_pages, preprocess=preprocess)
+                                                    physical_addresses=valid_pages[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ], preprocess=preprocess)
                                     
                                     dump_path = os.path.join(self._config.DUMP_DIR,
                                                                  '{0}-{1}-{2}-{3}-{4:x}.dmp'.format(
