@@ -511,30 +511,32 @@ def derelocation_code_86(pe):
                     inst_adds.append(inst.address)
 
             instruction_vector[instuction_index] = length_inst_sec if length_inst_sec else -1 # Avoid inspect a instruction several times
-
+            if break_loop:
+                break
         max_length = max(instruction_vector)
-        longest_index = instruction_vector.index(max_length)
-        for byte in range(code_rva_offset, code_rva_offset + longest_index):
-            try:
-                pe.set_visited(pointer=byte, size=1, tag=MARKS['JUMPED_BYTE'])
-            except PeMemError as e:
-                if e.code == MARKS['NULL_PAGE']:
-                    break
-        for inst in md.disasm(pe.__data__[code_rva_offset + longest_index:code_rva_offset + longest_index + max_length], code_rva_offset+longest_index):
-            #print "{}\t{}\t{}".format(hex(inst.address), inst.mnemonic, inst.op_str)
-            try:
-                pe.set_visited(pointer=inst.address, size=inst.size, tag=MARKS['INSTRUCTION_BYTE'])
-                for operand in inst.operands:
-                    # ToDo: Check coverage of all instruction
-                    if operand.type == X86_OP_MEM and operand.mem.disp != 0 and pe.__base_address__ <= operand.mem.disp <= pe.__base_address__ + pe.__size__:
-                        pe.set_zero_word(inst.address + inst.disp_offset)  # delete high value of address
-                    if operand.type == X86_OP_IMM and pe.__base_address__ <= operand.imm <= pe.__base_address__ + pe.__size__:
-                        pe.set_zero_word(inst.address + inst.imm_offset)
-            except PeMemError as e:
-                if e.code == MARKS['NULL_PAGE']:
-                    break
-                else:
-                    raise e
+        if max_length > 0:
+            longest_index = instruction_vector.index(max_length)
+            for byte in range(code_rva_offset, code_rva_offset + longest_index):
+                try:
+                    pe.set_visited(pointer=byte, size=1, tag=MARKS['JUMPED_BYTE'])
+                except PeMemError as e:
+                    if e.code == MARKS['NULL_PAGE']:
+                        break
+            for inst in md.disasm(pe.__data__[code_rva_offset + longest_index:code_rva_offset + longest_index + max_length], code_rva_offset+longest_index):
+                #print "{}\t{}\t{}".format(hex(inst.address), inst.mnemonic, inst.op_str)
+                try:
+                    pe.set_visited(pointer=inst.address, size=inst.size, tag=MARKS['INSTRUCTION_BYTE'])
+                    for operand in inst.operands:
+                        # ToDo: Check coverage of all instruction
+                        if operand.type == X86_OP_MEM and operand.mem.disp != 0 and pe.__base_address__ <= operand.mem.disp <= pe.__base_address__ + pe.__size__:
+                            pe.set_zero_word(inst.address + inst.disp_offset)  # delete high value of address
+                        if operand.type == X86_OP_IMM and pe.__base_address__ <= operand.imm <= pe.__base_address__ + pe.__size__:
+                            pe.set_zero_word(inst.address + inst.imm_offset)
+                except PeMemError as e:
+                    if e.code == MARKS['NULL_PAGE']:
+                        break
+                    else:
+                        raise e
         if pe.__visited__[code_rva_offset] == MARKS['UNKW_BYTE']:
             code_rva_offset += 1
 
