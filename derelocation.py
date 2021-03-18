@@ -494,6 +494,8 @@ def derelocation_code_86(pe):
             instuction_index = instruction_vector.index(0) # First address not disassemble like instruction
             length_inst_sec = 0
             #instruction_vector[instuction_index + length_inst_sec] = -1 # Avoid inspect a instruction several times
+
+            break_loop = False
             for inst in md.disasm(pe.__data__[code_rva_offset + instuction_index:code_section.real_size], code_rva_offset + instuction_index):
                 break_loop = False
                 for inst_byte in range(inst.address, inst.address+inst.size):
