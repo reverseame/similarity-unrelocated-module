@@ -366,7 +366,7 @@ class sum(AbstractWindowsCommand):
                         
                         try:
                             start = time.time()
-                            pe = MarkedPE(data=task_space.zread(mod.DllBase, mod.SizeOfImage), from_memory=True, valid_pages=valid_pages, base_address=mod.DllBase.v())
+                            pe = MarkedPE(data=task_space.zread(mod.DllBase, mod.SizeOfImage), virtual_layout=True, valid_pages=valid_pages, base_address=mod.DllBase.v())
                             end = time.time()
                         except Exception as e:
                             print 'ProcessId: {} Mod: {} Error: {}'.format(task.UniqueProcessId, mod_name, e)
