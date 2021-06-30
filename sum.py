@@ -26,7 +26,7 @@ PAGE_SIZE = 4096
 DERELOCATIONS = ['raw', 'guide', 'linear', 'best']
 
 class SUM:
-    help = """SumTool (Similarity Unrelocated Module Tool)
+    """SumTool (Similarity Unrelocated Module Tool)
 
         Undoes modifications done by relocation process on modules in memory dumps. Then it yields a Similarity Digest for each page of unrelocated modules.
 
@@ -71,7 +71,7 @@ class SUM:
           - Hashes' file given with -C must contain one hash per line.
           - Params -c and -C can be given multiple times (E.g. vol.py (...) -c <hash1> -c <hash2>)"""
 
-    def __init__(self, data, options=None, algorithms=['tlsh'], base_address=None, compare_file=None, compare_hash=None, derelocation='best', dump_dir=None, file=None, human_readable=False, json=False, list_sections=False, log_memory_pages=None, reloc=None, section='PE', strings=False, time=False, virtual_layout=False, architecture=None):
+    def __init__(self, data, options=None, algorithms=['tlsh'], base_address=None, compare_file=None, compare_hash=None, derelocation='best', dump_dir=None, file=None, json=False, list_sections=False, log_memory_pages=None, reloc=None, section='PE', strings=False, time=False, virtual_layout=False, architecture=None):
         if options:
             self.config = options
         else:
@@ -83,7 +83,6 @@ class SUM:
             self.config.derelocation=derelocation
             self.config.dump_dir=dump_dir
             self.config.file=file
-            self.config.human_readable=human_readable
             self.config.json=json
             self.config.list_sections=list_sections
             self.config.log_memory_pages=log_memory_pages
@@ -133,7 +132,7 @@ class SUM:
             raise RuntimeError('Comparisons only accept one algorithm. {}'.format(self.config.algorithms))
 
     def calculate(self):
-        """Main volatility plugin function"""
+        """Main function"""
 
         self.hash_engines = self.get_hash_engines()
 
@@ -151,7 +150,7 @@ class SUM:
             self.config.dump_dir = self.prepare_working_dir()
 
         for digest in self.hashing():
-            if hashes:
+            if hashes and not self.config.list_sections:
                 for comparison in self.comparing_hash(digest, hashes):
                     yield comparison
             else:
@@ -294,7 +293,7 @@ class SUM:
 
         preprocess = 'Raw'
         if self.config.list_sections:
-            yield self.get_pe_sections(pe)
+            yield {'section': self.get_pe_sections(pe)}
         else:
             pre_processing_time = None
             if self.config.derelocation in ['best', 'guide']:
@@ -332,7 +331,7 @@ class SUM:
                         'base_address': self.config.base_address, 
                         'mod_name': pe.module_name,
                         'section': sec.Name,
-                        'VirtualAddress': sec.VirtualAddress, 
+                        'virtual_address': sec.VirtualAddress, 
                         'size': len(data), 
                         'algorithm': engine.get_algorithm(),
                         'num_pages': num_pages,
@@ -380,9 +379,13 @@ class SUM:
                     digest['compared_page'] = index
                     digest['comparison_time'] = end - start
                     digest['sub_digest'] = sub_digest
-                    digest['compred_digest'] = h
+                    digest['compared_digest'] = h
 
                     yield digest
+
+    @classmethod
+    def list_algorithms(cls):
+        return HashEngine.get_algorithms()
 
 if __name__ == '__main__':
 
@@ -392,10 +395,9 @@ if __name__ == '__main__':
     parser.add_argument('--virtual-layout', '-v', help='Module with virtual layout structure', action='store_true')
     parser.add_argument('--section', '-s', default='PE', help='PE section to hash (e.g. -s PE,.data,header,.rsrc)')
     parser.add_argument('--algorithms', '-A', choices=HashEngine.get_algorithms(), help='Hash algorithms (e.g. -a {})'.format(' -a '.join(HashEngine.get_algorithms())), action='append', default=[HashEngine.default_algorithms]) 
-    parser.add_argument('--architecture', '-a', choices=['32', '64'], help='Code architecture (e.g. -a 32 | -a 64)') 
+    parser.add_argument('--architecture', '-a', choices=['32', '64'], help='Code architecture') 
     parser.add_argument('--compare-hash', '-c', help='Compare to given hash', action='append')
     parser.add_argument('--compare-file', '-C', help='Compare to hashes\' file', action='append')
-    parser.add_argument('--human-readable', '-H', help='Show human readable values', action='store_true')
     parser.add_argument('--time', '-t', help='Print computation time', action='store_true')
     parser.add_argument('--dump-dir', '-D', help='Directory in which to dump files')
     parser.add_argument('--list-sections', help='Show PE sections', action='store_true')
@@ -421,24 +423,32 @@ if __name__ == '__main__':
         args.reloc = reloc.read()
 
 
-    tool = SumTool(file.read(), args)
+    tool = SUM(file.read(), args)
     if args.json:
-        for output in tool.calculate():
-            output['base_address'] = hex(output.get('base_address')) if type(output.get('base_address')) == int else output.get('base_address')
-            print(output)
+        if args.list_sections:
+            for output in tool.calculate():
+                print(output)
+        else:
+            for output in tool.calculate():
+                output['base_address'] = hex(output.get('base_address')) if type(output.get('base_address')) == int else output.get('base_address')
+                output['virtual_address'] = hex(output.get('virtual_address')) if type(output.get('virtual_address')) == int else output.get('virtual_address')
+
+                print(output)
     else:
         try:
-            if args.compare_hash or args.compare_file:
+            if args.list_sections:
+                print( 'List of sections in the module: {}'.format(', '.join(tool.calculate().next().get('section'))))
+            elif args.compare_hash or args.compare_file:
                 print( 'Name\t\tSection\tVirtual Address\tSize\tPre-processing\tAlgorithm\tSimilarity\tSub Digest\t\t\t\t\t\tCompared Digest')
                 print( '----\t\t-------\t---------------\t----\t--------------\t---------\t----------\t----------\t\t\t\t\t\t----------------')
                 for output in tool.calculate():
-                    print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}\t\t{}...\t{}...'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('VirtualAddress')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('similarity'), output.get('sub_digest')[:50], output.get('compred_digest')[:50] ))
+                    print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}\t\t{}...\t{}...'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('virtual_address')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('similarity'), output.get('sub_digest')[:50], output.get('compared_digest')[:50] ))
             
             else:
                 print( 'Name\t\tSection\tVirtual Address\tSize\tPre-processing\tAlgorithm\tDigest\t')
                 print( '----\t\t-------\t---------------\t----\t--------------\t---------\t------\t')
                 for output in tool.calculate():
-                    print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}...{}'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('VirtualAddress')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('digest')[:20], output.get('digest')[-20:] ))
+                    print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}...{}'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('virtual_address')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('digest')[:20], output.get('digest')[-20:] ))
         except Exception as e:
             print(e)
 
