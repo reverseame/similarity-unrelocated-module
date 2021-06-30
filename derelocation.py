@@ -2,9 +2,6 @@ import re
 import struct
 from struct import unpack
 from marked_pefile.marked_pefile import OPTIONAL_HEADER_MAGIC_PE, MARKS, PeMemError, PEFormatError
-import volatility.plugins as plugins
-import volatility.debug as debug
-import volatility.utils as utils
 from capstone import Cs, CS_ARCH_X86, CS_MODE_32, CS_MODE_64
 from capstone.x86_const import X86_OP_MEM, X86_OP_IMM
 import pefile
@@ -231,7 +228,9 @@ def derelocation_code_86(pe):
     #code_section = pe.get_section_by_rva(pe.NT_HEADERS.OPTIONAL_HEADER.AddressOfEntryPoint)
     code_section =pe.get_section_by_name('.text')
     if not code_section:
-        return
+        code_section =pe.get_section_by_name('dump')
+        if not code_section:
+            return
 
     # Finding strings
 
@@ -478,8 +477,7 @@ def derelocation_code_86(pe):
             offset = pattern.search(pe.__data__[index:code_section.real_size])
 
     # disassembling
-    cs_mode = CS_MODE_32 if pe.NT_HEADERS.FILE_HEADER.Machine == 332 else CS_MODE_64
-    md = Cs(CS_ARCH_X86, cs_mode)
+    md = Cs(CS_ARCH_X86, CS_MODE_32)
     md.detail = True
 
     code_rva_offset = code_section.VirtualAddress
@@ -546,7 +544,11 @@ def derelocation_code_64(pe):
     #code_section = pe.get_section_by_rva(pe.NT_HEADERS.OPTIONAL_HEADER.AddressOfEntryPoint)
     code_section =pe.get_section_by_name('.text')
     if not code_section:
-        return
+        code_section =pe.get_section_by_name('dump')
+        if not code_section:
+            return
+
+
     for index in range(code_section.VirtualAddress, code_section.VirtualAddress + code_section.real_size, 8):
         address = struct.unpack('Q', pe.__data__[index:index + 8])[0]
         if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
@@ -554,15 +556,26 @@ def derelocation_code_64(pe):
     
 
 def linear_sweep_derelocation(pe):
-    derelocation_OptionalHeader_ImageBase(pe)
-    derelocation_delay_import(pe)
-    derelocation_LoadConfig(pe)
+    if pe.PE_TYPE:
+        derelocation_OptionalHeader_ImageBase(pe)
+        derelocation_delay_import(pe)
+        derelocation_LoadConfig(pe)
 
-    derelocation_iat(pe)
-    if pe.NT_HEADERS.OPTIONAL_HEADER.Magic == OPTIONAL_HEADER_MAGIC_PE:  # X86
+        derelocation_iat(pe)
+        if not pe.__architecture__:
+            if  pe.NT_HEADERS.OPTIONAL_HEADER.Magic == OPTIONAL_HEADER_MAGIC_PE:  # X86
+                derelocation_code_86(pe)
+            else:
+                derelocation_code_64(pe)
+            return
+    if not pe.__architecture__:
+        raise DerelocationError('Error: Unidentifiable architecture. ')
+    elif pe.__architecture__ == '32':
         derelocation_code_86(pe)
     else:
         derelocation_code_64(pe)
+
+    
 
 # GUIDED DE-RELOCATION
 def get_section(pe, section_name):
@@ -864,3 +877,11 @@ def guided_derelocation(pe, reloc):
             break
         RVA_page = unpack('I', reloc[index:index + 4])[0]
         block_size = unpack('I', reloc[index + 4:index + 8])[0]
+
+
+class DerelocationError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return repr('Error: {}: {} - {}'.format(self.code, self.msg, self.add))
