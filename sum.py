@@ -5,6 +5,7 @@ import time
 import hashlib
 import sys
 import argparse
+import traceback
 
 try:
     import volatility.debug as logging
@@ -450,16 +451,4 @@ if __name__ == '__main__':
                 for output in tool.calculate():
                     print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}...{}'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('virtual_address')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('digest')[:20], output.get('digest')[-20:] ))
         except Exception as e:
-            print(e)
-
-
-    
-
-    
-
-
-
-
-
-
-    
+            traceback.print_exc()
