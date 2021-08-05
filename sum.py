@@ -5,6 +5,7 @@ import time
 import hashlib
 import sys
 import argparse
+import traceback
 
 try:
     import volatility.debug as logging
@@ -457,16 +458,4 @@ if __name__ == '__main__':
             if args.warnings:
                 print("Warnings:\n{}".format("\n".join(output.get('PE_warnings'))))
         except Exception as e:
-            print(e)
-
-
-    
-
-    
-
-
-
-
-
-
-    
+            traceback.print_exc()

@@ -94,9 +94,9 @@ class HashEngine:
                 data = f.read()
 
 
-        hash = ''
+        hash = [] 
 
-        hashing_time = ''
+        hashing_time = []
 
         num_pages = 0
         num_valid_pages = 0
@@ -108,14 +108,14 @@ class HashEngine:
             num_pages += 1
             if valid:
                 start = time.time()
-                hash += self.engine.calculate(data[page_index:page_index + PAGE_SIZE]) + ';'
+                hash.append(self.engine.calculate(data[page_index:page_index + PAGE_SIZE]))
                 end = time.time()
                 num_valid_pages += 1
 
-                hashing_time += '{0:.20f};'.format(end - start)
+                hashing_time.append('{0:.20f}'.format(end - start))
             else:
-                hash += '*;'
-                hashing_time += '*;'
+                hash.append('*')
+                hashing_time.append('*')
 
         return num_pages, num_valid_pages, hashing_time[:-1], hash[:-1]
 
