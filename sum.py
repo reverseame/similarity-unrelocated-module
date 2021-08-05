@@ -325,6 +325,8 @@ class SUM:
             # Set the list of sections that match with -S expression
             for sec in self.process_section(self.config.section, pe):
                 data = sec.get_data()
+                if len(data) == 0:
+                    continue
                 for engine in self.hash_engines:
                     num_pages, valid_pages, digesting_time, digest = engine.calculate(data=data, valid_pages=valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ])
                     yield { 'digest':digest, 
@@ -340,7 +342,8 @@ class SUM:
                         'pe_time': '{0:.20f}'.format(pe_memory_time), 
                         'derelocation_time': '{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
                         'valid_pages': valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ], 
-                        'preprocess': preprocess}
+                        'preprocess': preprocess,
+                        'PE_warnings': pe._PE__warnings}
                     
                     if self.config.dump_dir:
                         dump_path = os.path.join(self.config.dump_dir, '{0}-{1}-{2:x}.dmp'.format(pe.module_name if pe.module_name else 'mod', re.sub(r'\x00', r'', re.sub(r'\/', r'.', sec.Name)), self.config.base_address))
@@ -406,6 +409,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o', help='ToDo', action='store_true')
     parser.add_argument('--derelocation', '-d', default='best', choices=['best', 'guide', 'linear', 'raw'], help='De-relocate modules pre-processing method.')
     parser.add_argument('--log-memory-pages', help='Log pages which are in memory to FILE')
+    parser.add_argument('--warnings', '-w', help='Show warnings', action='store_true')
     parser.add_argument('file', help='File that contains the module')
 
     args = parser.parse_args()
@@ -450,6 +454,8 @@ if __name__ == '__main__':
                 print( '----\t\t-------\t---------------\t----\t--------------\t---------\t------\t')
                 for output in tool.calculate():
                     print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}...{}'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('virtual_address')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('digest')[:20], output.get('digest')[-20:] ))
+            if args.warnings:
+                print("Warnings:\n{}".format("\n".join(output.get('PE_warnings'))))
         except Exception as e:
             print(e)
 
