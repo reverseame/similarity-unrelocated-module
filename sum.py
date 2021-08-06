@@ -99,11 +99,6 @@ class SUM:
         # Checking input data
         #####################
 
-        # ArgumentParser does not delete the default option in aggregate action -> deleting the first (default) when there are more than one
-        # In addition, deleted duplications
-        if len(self.config.algorithms) > 1:
-            self.config.algorithms = list(set(self.config.algorithms[1:]))
-
          
         # Base Address acquisition 
         try:
@@ -414,6 +409,11 @@ if __name__ == '__main__':
     parser.add_argument('file', help='File that contains the module')
 
     args = parser.parse_args()
+
+    # ArgumentParser does not delete the default option in aggregate action -> deleting the first (default) when there are more than one
+    # In addition, deleted duplications
+    if len(args.algorithms) > 1:
+        args.algorithms = list(set(self.config.algorithms[1:]))
 
     if not os.path.isfile(args.file):
         print('Error: File {} is invalid.'.format(args.file))
