@@ -117,7 +117,7 @@ class HashEngine:
                 hash.append('*')
                 hashing_time.append('*')
 
-        return num_pages, num_valid_pages, hashing_time[:-1], hash[:-1]
+        return num_pages, num_valid_pages, hashing_time, hash
 
     def compare(self, hash1, hash2):
         return self.engine.compare(hash1, hash2)
