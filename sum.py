@@ -14,8 +14,8 @@ except ImportError:
 
 
 from marked_pefile.marked_pefile import MarkedPE
-from marked_pefile.pefile import pefile
-from derelocation import  acquire_sys_file_handlers, get_reloc_section, guided_derelocation, linear_sweep_derelocation
+from marked_pefile.pefile.pefile import PE, PEFormatError
+from derelocation import  guided_derelocation, linear_sweep_derelocation
 from hashengine import HashEngine
 
 #PE_HEADERS = ['dos_header', 'nt_headers', 'file_header', 'optional_header', 'header']
@@ -39,8 +39,6 @@ class SUM:
                PE section (-S .text | -S .data,.rsrc)
                PE header (-S header | -S .data,header,.rsrc)
                All PE sections including main executable module (-S all)
-
-          -s: Hash ASCII strings instead of binary data.
 
           -c: Compare given hash against generated hashes.
                 (E.g. -c '3:elHLlltXluBGqMLWvl:6HRlOBVrl')
@@ -73,10 +71,11 @@ class SUM:
           - Hashes' file given with -C must contain one hash per line.
           - Params -c and -C can be given multiple times (E.g. vol.py (...) -c <hash1> -c <hash2>)"""
 
-    def __init__(self, data, options=None, algorithms=['tlsh'], base_address=None, compare_file=None, compare_hash=None, derelocation='best', dump_dir=None, file=None, json=False, list_sections=False, log_memory_pages=None, reloc=None, section='PE', strings=False, time=False, virtual_layout=False, architecture=None):
+    def __init__(self, data, options=None, algorithms=['tlsh'], base_address=None, compare_file=None, compare_hash=None, derelocation='best', dump_dir=None, list_sections=False, log_memory_pages=None, reloc=None, section='PE', virtual_layout=False, architecture=None, valid_pages=None):
         if options:
             self.config = options
         else:
+            self.valid_pages = valid_pages
             self.config= argparse.Namespace()
             self.config.algorithms=algorithms
             self.config.base_address=base_address
@@ -84,14 +83,10 @@ class SUM:
             self.config.compare_hash=compare_hash
             self.config.derelocation=derelocation
             self.config.dump_dir=dump_dir
-            self.config.file=file
-            self.config.json=json
             self.config.list_sections=list_sections
             self.config.log_memory_pages=log_memory_pages
             self.config.reloc=reloc
             self.config.section=section
-            self.config.strings=strings
-            self.config.time=time
             self.config.virtual_layout=virtual_layout
             self.config.architecture=architecture
         self.data = data
@@ -102,12 +97,12 @@ class SUM:
          
         # Base Address acquisition 
         try:
-            pe = pefile.PE(data=data, fast_load=True)
+            pe = PE(data=data, fast_load=True)
             
             self.peFormat = True
             if not self.config.base_address:
                 self.config.base_address = pe.OPTIONAL_HEADER.ImageBase
-        except pefile.PEFormatError:
+        except PEFormatError:
             self.peFormat = False
                
 
@@ -244,17 +239,20 @@ class SUM:
         header = search_header.group(1) if search_header else section
         raise Error('Section {0} not found'.format(header))
 
-    def valid_pages(self):
-        array_valid_pages=[]
-        for page in [self.data[i:i+PAGE_SIZE] for i in range(0, len(self.data), PAGE_SIZE)]:
-            temp_valid_result =  False
-            for byte in page:
-                if ord(byte) != 0:
-                    temp_valid_result = True
-                    break
-            array_valid_pages.append(temp_valid_result)
+    def get_valid_pages(self):
+        if not self.valid_pages:
+            array_valid_pages=[]
+            for page in [self.data[i:i+PAGE_SIZE] for i in range(0, len(self.data), PAGE_SIZE)]:
+                temp_valid_result =  False
+                for byte in page:
+                    if ord(byte) != 0:
+                        temp_valid_result = True
+                        break
+                array_valid_pages.append(temp_valid_result)
 
-        return array_valid_pages
+            return array_valid_pages
+        else:
+            return self.valid_pages
 
     def hashing(self):
         """
@@ -271,7 +269,7 @@ class SUM:
                 debug.warning('Warning: PE is not being dumped')
 
 
-        valid_page_array = self.valid_pages()
+        valid_page_array = self.get_valid_pages()
         
         pe_memory_time=None
 
@@ -289,6 +287,7 @@ class SUM:
 
 
         preprocess = 'Raw'
+        pre_processing_time = None
         if self.config.list_sections:
             yield {'section': self.get_pe_sections(pe)}
         else:
@@ -339,6 +338,7 @@ class SUM:
                         'derelocation_time': '{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
                         'valid_pages': valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ], 
                         'preprocess': preprocess,
+                        'pre_processing_time': pre_processing_time,
                         'PE_warnings': pe._PE__warnings}
                     
                     if self.config.dump_dir:
@@ -369,7 +369,7 @@ class SUM:
     def comparing_hash(self, digest, hash_):
         """Compare hash for every dump page"""
         for h in hash_:
-            for (sub_digest, index, valid_page) in zip( digest['digest'].split(';'), range(0, digest['num_pages']), digest['valid_pages']):
+            for (sub_digest, index, valid_page) in zip( digest['digest'], range(0, digest['num_pages']), digest['valid_pages']):
                 if valid_page:
                     start = time.time()
                     similarity = self.hash_engines[0].compare(sub_digest, h)
@@ -413,7 +413,7 @@ if __name__ == '__main__':
     # ArgumentParser does not delete the default option in aggregate action -> deleting the first (default) when there are more than one
     # In addition, deleted duplications
     if len(args.algorithms) > 1:
-        args.algorithms = list(set(self.config.algorithms[1:]))
+        args.algorithms = list(set(args.algorithms[1:]))
 
     if not os.path.isfile(args.file):
         print('Error: File {} is invalid.'.format(args.file))
