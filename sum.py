@@ -290,8 +290,7 @@ class SUM:
         pre_processing_time = None
         if self.config.list_sections:
             yield {'section': self.get_pe_sections(pe)}
-        else:
-            pre_processing_time = None
+        elif pe.PE_TYPE:
             if self.config.derelocation in ['best', 'guide']:
                 # Retrieving reloc for module for text section
                 if self.config.reloc:
@@ -315,41 +314,41 @@ class SUM:
 
                 preprocess = 'Linear'
 
-            # Generate one dump Object for every section/header specified
+        # Generate one dump Object for every section/header specified
 
-            # Set the list of sections that match with -S expression
-            for sec in self.process_section(self.config.section, pe):
-                data = sec.get_data()
-                if len(data) == 0:
-                    continue
-                for engine in self.hash_engines:
-                    num_pages, valid_pages, digesting_time, digest = engine.calculate(data=data, valid_pages=valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ])
-                    yield { 'digest':digest, 
-                        'digesting_time':digesting_time, 
-                        'base_address': self.config.base_address, 
-                        'mod_name': pe.module_name,
-                        'section': sec.Name,
-                        'virtual_address': sec.VirtualAddress, 
-                        'size': len(data), 
-                        'algorithm': engine.get_algorithm(),
-                        'num_pages': num_pages,
-                        'num_valid_pages': valid_pages,
-                        'pe_time': '{0:.20f}'.format(pe_memory_time), 
-                        'derelocation_time': '{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
-                        'valid_pages': valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ], 
-                        'preprocess': preprocess,
-                        'pre_processing_time': pre_processing_time,
-                        'PE_warnings': pe._PE__warnings}
-                    
-                    if self.config.dump_dir:
-                        dump_path = os.path.join(self.config.dump_dir, '{0}-{1}-{2:x}.dmp'.format(pe.module_name if pe.module_name else 'mod', re.sub(r'\x00', r'', re.sub(r'\/', r'.', sec.Name)), self.config.base_address))
-                        self.backup_file(dump_path, data)
-                    if self.config.log_memory_pages and sec.Name in ['PE', 'dump']:
-                        if not self.config.dump_dir:
-                            debug.warning('Warning: Modules are not being dumped to file')
-                        logfile.write('{},{},{},{}:{}\n'.format(self.config.optparse_opts.location[7:], dump_path, hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(), len(valid_pages), ', '.join([str(i) for i in range(0, len(valid_pages)) if valid_pages[i] ])))
-                                
-            del data
+        # Set the list of sections that match with -S expression
+        for sec in self.process_section(self.config.section, pe):
+            data = sec.get_data()
+            if len(data) == 0:
+                continue
+            for engine in self.hash_engines:
+                num_pages, valid_pages, digesting_time, digest = engine.calculate(data=data, valid_pages=valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ])
+                yield { 'digest':digest, 
+                    'digesting_time':digesting_time, 
+                    'base_address': self.config.base_address, 
+                    'mod_name': pe.module_name,
+                    'section': sec.Name,
+                    'virtual_address': sec.VirtualAddress, 
+                    'size': len(data), 
+                    'algorithm': engine.get_algorithm(),
+                    'num_pages': num_pages,
+                    'num_valid_pages': valid_pages,
+                    'pe_time': '{0:.20f}'.format(pe_memory_time), 
+                    'derelocation_time': '{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
+                    'valid_pages': valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ], 
+                    'preprocess': preprocess,
+                    'pre_processing_time': pre_processing_time,
+                    'PE_warnings': pe._PE__warnings}
+                
+                if self.config.dump_dir:
+                    dump_path = os.path.join(self.config.dump_dir, '{0}-{1}-{2:x}.dmp'.format(pe.module_name if pe.module_name else 'mod', re.sub(r'\x00', r'', re.sub(r'\/', r'.', sec.Name)), self.config.base_address))
+                    self.backup_file(dump_path, data)
+                if self.config.log_memory_pages and sec.Name in ['PE', 'dump']:
+                    if not self.config.dump_dir:
+                        debug.warning('Warning: Modules are not being dumped to file')
+                    logfile.write('{},{},{},{}:{}\n'.format(self.config.optparse_opts.location[7:], dump_path, hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(), len(valid_pages), ', '.join([str(i) for i in range(0, len(valid_pages)) if valid_pages[i] ])))
+                            
+        del data
         if 'logfile' in locals():
             logfile.close()
 
