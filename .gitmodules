@@ -1,0 +1,3 @@
+[submodule "marked_pefile"]
+	path = marked_pefile
+	url = https://github.com/miguelmartinperez/markedPefile.git
