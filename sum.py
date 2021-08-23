@@ -74,6 +74,7 @@ class SUM:
     def __init__(self, data, options=None, algorithms=['tlsh'], base_address=None, compare_file=None, compare_hash=None, derelocation='best', dump_dir=None, list_sections=False, log_memory_pages=None, reloc=None, section='PE', virtual_layout=False, architecture=None, valid_pages=None):
         if options:
             self.config = options
+            self.valid_pages = None
         else:
             self.valid_pages = valid_pages
             self.config= argparse.Namespace()
