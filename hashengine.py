@@ -65,7 +65,7 @@ class TLSH:
         if hash1 == '-' or hash2 == '-':
             return '-'
 
-        return fuzzyhashlib.tlsh(hash=hash1).diff(fuzzyhashlib.tlsh(hash=hash2))
+        return fuzzyhashlib.tlsh(hash=hash1).diff(hash2)
 
 class HashEngine:
     algorithms = {'ssdeep': SSDeep, 'sdhash': SDHash, 'tlsh': TLSH}
