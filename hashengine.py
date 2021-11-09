@@ -1,18 +1,26 @@
 import string
 import time
-
-import ssdeep
-import fuzzyhashlib
+import pdb
+# import ssdeep
+# import fuzzyhashlib
 import re
+import subprocess
 
 PAGE_SIZE = 4096
 
+temporal_windows_filename = r'windows_dependencies\SDAs\temporal_windows_file.dmp'
+# temporal_windows_filename = r'temporal_windows_file.dmp'
 
 def valid_page(page):
     for byte in page:
         if ord(byte) != 0:
             return True
     return False
+
+def write_page_contents_to_temporal_windows_file(data):
+    temporal_windows_file = open(temporal_windows_filename, 'wb')
+    temporal_windows_file.write(data)
+    temporal_windows_file.close()
 
 
 class SSDeep:
@@ -21,16 +29,23 @@ class SSDeep:
         return 'SSDeep'
 
     def calculate(self, data):
-        result = ssdeep.hash(data)
-        return '-' if result == '3::' else result
+        write_page_contents_to_temporal_windows_file(data)
+        ssdeep_command = [r'windows_dependencies\SDAs\ssdeep\ssdeep.exe', temporal_windows_filename]
+        process = subprocess.Popen(ssdeep_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = process.communicate()
+        return_code = process.returncode
+        if return_code == 0:
+            if output == '':
+                return 'SSDEEP_DIGEST_COULD_NOT_BE_CALCULATED_DESPITE_SUCCESS'
+            else:
+                return unicode(output.split(b'\n')[1].split(b',')[0]) # Unicode in order to match the Linux output
+        else:
+            # print('Error: There was an error with the calculation of an ssdeep digest. {}'.format(error))
+            return 'ERROR_SSDEEP_DIGEST_COULD_NOT_BE_CALCULATED'
 
     def compare(self, hash1, hash2):
-        if hash1 == '-' or hash2 == '-':
-            return '-'
-        try:
-            return ssdeep.compare(hash1, hash2)
-        except ssdeep.InternalError, reason:
-            return '-'
+        return '-' # Not supported in Windows at the moment
+
 
 class SDHash:
     
@@ -38,34 +53,47 @@ class SDHash:
         return 'SDHash'
 
     def calculate(self, data):
-        try:
-            return fuzzyhashlib.sdhash(data).hexdigest().strip()
-        except ValueError, reason:
-            return '-'
+        write_page_contents_to_temporal_windows_file(data)
+        sdhash_command = [r'windows_dependencies\SDAs\sdhash\sdhash.exe', temporal_windows_filename]
+        process = subprocess.Popen(sdhash_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = process.communicate()
+        return_code = process.returncode
+        if return_code == 0:
+            if output == '':
+                return 'SDHASH_DIGEST_COULD_NOT_BE_CALCULATED_DESPITE_SUCCESS'
+            else:
+                return re.sub(r'^sdbf:03:\d+:.+:4096:sha1:', r'sdbf:03:0::4096:sha1:', output.rstrip()) # To make the hash be the same as when SUM is run on Linux
+        else:
+            # print('Error: There was an error with the calculation of an sdhash digest. {}'.format(error))
+            return 'ERROR_SDHASH_DIGEST_COULD_NOT_BE_CALCULATED'
 
     def compare(self, hash1, hash2):
-        if hash1 == '-' or hash2 == '-':
-            return '-'
-        return fuzzyhashlib.sdhash(hash=hash1) - fuzzyhashlib.sdhash(hash=hash2)
+        return '-' # Not supported in Windows at the moment
          
-
 class TLSH:
         
     def get_algorithm(self):
         return 'TLSH'
 
     def calculate(self, data):
-        try:
-            return fuzzyhashlib.tlsh(data).hexdigest().strip()
-        except ValueError, reason:
-            return '-'
-        
+        write_page_contents_to_temporal_windows_file(data)
+        python3_file = r'windows_dependencies\SDAs\tlsh\tlsh_algorithm.py'
+        python3_command = ['py', '-3', python3_file]
+        process = subprocess.Popen(' '.join(python3_command), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = process.communicate()
+        return_code = process.returncode
+        if return_code == 0:
+            if output == '':
+                return 'TLSH_DIGEST_COULD_NOT_BE_CALCULATED_DESPITE_SUCCESS'
+            else:
+                return output.rstrip()
+        else:
+            # print('Error: There was an error with the calculation of a tlsh digest. {}'.format(error))
+            return 'ERROR_TLSH_DIGEST_COULD_NOT_BE_CALCULATED'
 
     def compare(self, hash1, hash2):
-        if hash1 == '-' or hash2 == '-':
-            return '-'
+        return '-' # Not supported in Windows at the moment
 
-        return fuzzyhashlib.tlsh(hash=hash1) - fuzzyhashlib.tlsh(hash=hash2)
 
 class HashEngine:
     algorithms = {'ssdeep': SSDeep, 'sdhash': SDHash, 'tlsh': TLSH}
@@ -121,7 +149,3 @@ class HashEngine:
 
     def compare(self, hash1, hash2):
         return self.engine.compare(hash1, hash2)
-
-
-
-

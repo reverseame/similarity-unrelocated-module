@@ -6,6 +6,7 @@ import hashlib
 import sys
 import argparse
 import traceback
+import pdb
 
 try:
     import volatility.debug as logging
@@ -17,6 +18,7 @@ from marked_pefile.marked_pefile import MarkedPE
 from marked_pefile.pefile import pefile
 from derelocation import  acquire_sys_file_handlers, get_reloc_section, guided_derelocation, linear_sweep_derelocation
 from hashengine import HashEngine
+from hashengine import temporal_windows_filename
 
 #PE_HEADERS = ['dos_header', 'nt_headers', 'file_header', 'optional_header', 'header']
 
@@ -98,12 +100,17 @@ class SUM:
         # Checking input data
         #####################
 
+        # print ('self.data length in SUM constructor', len(self.data))
+
         # ArgumentParser does not delete the default option in aggregate action -> deleting the first (default) when there are more than one
         # In addition, deleted duplications
-        if len(self.config.algorithms) > 1:
-            self.config.algorithms = list(set(self.config.algorithms[1:]))
 
-         
+        if not self.config.algorithms:
+            self.config.algorithms = ['tlsh']
+
+        if len(self.config.algorithms) > 1:
+            self.config.algorithms = list(set(self.config.algorithms[0:]))
+
         # Base Address acquisition 
         try:
             pe = pefile.PE(data=data, fast_load=True)
@@ -134,9 +141,7 @@ class SUM:
 
     def calculate(self):
         """Main function"""
-
         self.hash_engines = self.get_hash_engines()
-
         # Get hashes to compare to
         hashes = []
         if self.config.compare_hash:
@@ -276,9 +281,10 @@ class SUM:
 
 
         valid_page_array = self.valid_pages()
+        # print('valid_page_array length:', len(valid_page_array))
+        # print ('self.data length', len(self.data))
         
         pe_memory_time=None
-
         start = time.time()
         pe = MarkedPE(data=self.data, virtual_layout=self.config.virtual_layout, valid_pages=valid_page_array, base_address=self.config.base_address, architecture=self.config.architecture)
         end = time.time()
@@ -370,7 +376,8 @@ class SUM:
     def comparing_hash(self, digest, hash_):
         """Compare hash for every dump page"""
         for h in hash_:
-            for (sub_digest, index, valid_page) in zip( digest['digest'].split(';'), range(0, digest['num_pages']), digest['valid_pages']):
+            # Review the following line (digest['digest'].split(';') (R) vs digest['digest'] (E))
+            for (sub_digest, index, valid_page) in zip( digest['digest'], range(0, digest['num_pages']), digest['valid_pages']):
                 if valid_page:
                     start = time.time()
                     similarity = self.hash_engines[0].compare(sub_digest, h)
@@ -395,7 +402,9 @@ if __name__ == '__main__':
     parser.add_argument('--reloc', '-r', help='A file with the .reloc section of the module')
     parser.add_argument('--virtual-layout', '-v', help='Module with virtual layout structure', action='store_true')
     parser.add_argument('--section', '-s', default='PE', help='PE section to hash (e.g. -s PE,.data,header,.rsrc)')
-    parser.add_argument('--algorithms', '-A', choices=HashEngine.get_algorithms(), help='Hash algorithms (e.g. -a {})'.format(' -a '.join(HashEngine.get_algorithms())), action='append', default=[HashEngine.default_algorithms]) 
+    # parser.add_argument('--algorithms', '-A', choices=HashEngine.get_algorithms(), help='Hash algorithms (e.g. -a {})'.format(' -a '.join(HashEngine.get_algorithms())), action='append', default=[HashEngine.default_algorithms])
+    # Modified because TLSH hashes were always generated, even when the algorithm was not specified
+    parser.add_argument('--algorithms', '-A', choices=HashEngine.get_algorithms(), help='Hash algorithms (e.g. -a {})'.format(' -a '.join(HashEngine.get_algorithms())), action='append') 
     parser.add_argument('--architecture', '-a', choices=['32', '64'], help='Code architecture') 
     parser.add_argument('--compare-hash', '-c', help='Compare to given hash', action='append')
     parser.add_argument('--compare-file', '-C', help='Compare to hashes\' file', action='append')
@@ -413,28 +422,36 @@ if __name__ == '__main__':
     if not os.path.isfile(args.file):
         print('Error: File {} is invalid.'.format(args.file))
         exit(-1)
-    file = open(args.file, 'r')
+    file = open(args.file, 'rb')
 
 
     if args.reloc:
         if not os.path.isfile(args.reloc): 
             print('Error: Reloc file {} is invalid.'.format(args.reloc))
             exit(-1)
-        reloc = open(args.reloc, 'r')
+        reloc = open(args.reloc, 'rb')
         args.reloc = reloc.read()
 
-
     tool = SUM(file.read(), args)
+
+    # Change working directory to reliably find Windows dependencies
+    os.chdir(os.path.realpath(os.path.dirname(__file__)))
+
+    # Create temporal file in Windows to store page data
+    temporal_windows_file = open(temporal_windows_filename, 'wb')
+    temporal_windows_file.close()
+
     if args.json:
         if args.list_sections:
             for output in tool.calculate():
-                print(output)
+                # print(output)
+                print(json.dumps(output)) # In order to print valid JSON
         else:
             for output in tool.calculate():
                 output['base_address'] = hex(output.get('base_address')) if type(output.get('base_address')) == int else output.get('base_address')
                 output['virtual_address'] = hex(output.get('virtual_address')) if type(output.get('virtual_address')) == int else output.get('virtual_address')
-
-                print(output)
+                # print(output)
+                print(json.dumps(output)) # In order to print valid JSON
     else:
         try:
             if args.list_sections:
@@ -452,3 +469,6 @@ if __name__ == '__main__':
                     print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}...{}'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('virtual_address')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('digest')[:20], output.get('digest')[-20:] ))
         except Exception as e:
             traceback.print_exc()
+
+    # Delete temporal file in Windows
+    os.remove(temporal_windows_filename)
