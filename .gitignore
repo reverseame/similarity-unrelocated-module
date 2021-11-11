@@ -3,5 +3,4 @@
 .idea/
 .DS_Store
 marked_pefile
-windows_dependencies/SDAs/sdhash
-windows_dependencies/SDAs/ssdeep
+windows_dependencies

@@ -1,5 +1,6 @@
 import json
 
+
 class PESection(object):
     def __init__(self, name, sections, pid='', mod_base=''):
         super(PESection, self).__init__()
@@ -7,19 +8,19 @@ class PESection(object):
         self.sections = sections
         self.pid = pid
         self.mod_base = mod_base
-    
+
     def get_generator(self):
         name_str = '{0} ({1})'.format(self.name, self.pid) if self.pid and self.name else self.name
         return [
-                    str(name_str),
-                    str(', '.join(self.sections))
-                ]
+            str(name_str),
+            str(', '.join(self.sections))
+        ]
 
     def get_unified_output(self):
         return [
-                    ('Name', str),
-                    ('Sections', str)
-                ]
+            ('Name', str),
+            ('Sections', str)
+        ]
 
     def _json(self):
         return json.dumps(self._dict())

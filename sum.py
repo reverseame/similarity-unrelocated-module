@@ -3,30 +3,30 @@ import re
 import json
 import time
 import hashlib
-import sys
 import argparse
 import traceback
-import pdb
 
 try:
     import volatility.debug as logging
 except ImportError:
     import logging
 
-
 from marked_pefile.marked_pefile import MarkedPE
 from marked_pefile.pefile import pefile
-from derelocation import  acquire_sys_file_handlers, get_reloc_section, guided_derelocation, linear_sweep_derelocation
+from derelocation import guided_derelocation, linear_sweep_derelocation
 from hashengine import HashEngine
 from hashengine import temporal_windows_filename
 
-#PE_HEADERS = ['dos_header', 'nt_headers', 'file_header', 'optional_header', 'header']
+# PE_HEADERS = ['dos_header', 'nt_headers', 'file_header', 'optional_header', 'header']
 
 MODE_32 = '32bit'
 MODE_64 = '64bit'
 PAGE_SIZE = 4096
 
 DERELOCATIONS = ['raw', 'guide', 'linear', 'best']
+
+logger = logging.getLogger(__name__)
+
 
 class SUM:
     """SumTool (Similarity Unrelocated Module Tool)
@@ -74,36 +74,39 @@ class SUM:
           - Hashes' file given with -C must contain one hash per line.
           - Params -c and -C can be given multiple times (E.g. vol.py (...) -c <hash1> -c <hash2>)"""
 
-    def __init__(self, data, options=None, algorithms=['tlsh'], base_address=None, compare_file=None, compare_hash=None, derelocation='best', dump_dir=None, file=None, json=False, list_sections=False, log_memory_pages=None, reloc=None, section='PE', strings=False, time=False, virtual_layout=False, architecture=None):
+    def __init__(self, data, options=None, algorithms=['tlsh'], base_address=None, compare_file=None, compare_hash=None,
+                 derelocation='best', dump_dir=None, file=None, json=False, list_sections=False, log_memory_pages=None,
+                 reloc=None, section='PE', strings=False, time=False, virtual_layout=False, architecture=None):
         if options:
             self.config = options
         else:
-            self.config= argparse.Namespace()
-            self.config.algorithms=algorithms
-            self.config.base_address=base_address
-            self.config.compare_file=compare_file
-            self.config.compare_hash=compare_hash
-            self.config.derelocation=derelocation
-            self.config.dump_dir=dump_dir
-            self.config.file=file
-            self.config.json=json
-            self.config.list_sections=list_sections
-            self.config.log_memory_pages=log_memory_pages
-            self.config.reloc=reloc
-            self.config.section=section
-            self.config.strings=strings
-            self.config.time=time
-            self.config.virtual_layout=virtual_layout
-            self.config.architecture=architecture
+            self.config = argparse.Namespace()
+            self.config.algorithms = algorithms
+            self.config.base_address = base_address
+            self.config.compare_file = compare_file
+            self.config.compare_hash = compare_hash
+            self.config.derelocation = derelocation
+            self.config.dump_dir = dump_dir
+            self.config.file = file
+            self.config.json = json
+            self.config.list_sections = list_sections
+            self.config.log_memory_pages = log_memory_pages
+            self.config.reloc = reloc
+            self.config.section = section
+            self.config.strings = strings
+            self.config.time = time
+            self.config.virtual_layout = virtual_layout
+            self.config.architecture = architecture
         self.data = data
 
         # Checking input data
         #####################
 
-        # print ('self.data length in SUM constructor', len(self.data))
-
         # ArgumentParser does not delete the default option in aggregate action -> deleting the first (default) when there are more than one
         # In addition, deleted duplications
+
+        os.chdir(os.path.dirname(__file__))  # Change working directory to reliably find Windows dependencies
+        logger.debug(f'New working directory (SUM): {os.getcwd()}')
 
         if not self.config.algorithms:
             self.config.algorithms = ['tlsh']
@@ -114,13 +117,12 @@ class SUM:
         # Base Address acquisition 
         try:
             pe = pefile.PE(data=data, fast_load=True)
-            
+
             self.peFormat = True
             if not self.config.base_address:
                 self.config.base_address = pe.OPTIONAL_HEADER.ImageBase
         except pefile.PEFormatError:
             self.peFormat = False
-               
 
         if type(self.config.base_address) == str:
             if self.config.base_address[0:2] == '0x':
@@ -128,15 +130,16 @@ class SUM:
             else:
                 self.config.base_address = int(self.config.base_address)
 
-        if self.config.derelocation == 'guide' and self.config.reloc == None :
+        if self.config.derelocation == 'guide' and self.config.reloc == None:
             raise RuntimeError('The .reloc section is necessary to execute the Guided Derelocation method.')
         elif self.config.derelocation == 'linear' and self.config.base_address == None:
-            raise RuntimeError('The base address where module was loaded is necessary to excute the Linear Sweep Derelocation method.')
-        elif  self.config.reloc == None and self.config.base_address == None:
+            raise RuntimeError(
+                'The base address where module was loaded is necessary to excute the Linear Sweep Derelocation method.')
+        elif self.config.reloc == None and self.config.base_address == None:
             self.config.derelocation = 'raw'
 
-
-        if (self.config.compare_hash or self.config.compare_file) > len(self.config.algorithms) > 1:
+        # if (self.config.compare_hash or self.config.compare_file) > len(self.config.algorithms) > 1: # Python 2
+        if (self.config.compare_hash or self.config.compare_file) and len(self.config.algorithms) > 1:
             raise RuntimeError('Comparisons only accept one algorithm. {}'.format(self.config.algorithms))
 
     def calculate(self):
@@ -151,7 +154,7 @@ class SUM:
                 if os.path.isfile(hash_file):
                     hashes += self.read_hash_files(hash_file)
                 else:
-                  raise RuntimeError('{} is no a file'.format())  
+                    raise RuntimeError('{} is no a file'.format())
         if self.config.dump_dir:
             self.config.dump_dir = self.prepare_working_dir()
 
@@ -161,6 +164,11 @@ class SUM:
                     yield comparison
             else:
                 yield digest
+
+        self.remove_windows_temporal_file()
+
+    def remove_windows_temporal_file(self):
+        os.remove(temporal_windows_filename)
 
     def read_hash_files(self, path):
         ret = []
@@ -180,9 +188,8 @@ class SUM:
 
         for alg in self.config.algorithms:
             ret += [HashEngine(alg)]
-            
-        return ret
 
+        return ret
 
     def get_pe_sections(self, pe):
         """
@@ -221,6 +228,11 @@ class SUM:
         else:
             for section in pe.sections:
                 for expresion in section_expr:
+                    # if re.search(expresion, section.Name):  # Python 2
+                    if isinstance(expresion, str) and isinstance(section.Name, bytes):
+                        expresion = expresion.encode('utf-8')
+                    elif isinstance(expresion, bytes) and isinstance(section.Name, str):
+                        expresion = expresion.decode('utf-8')
                     if re.search(expresion, section.Name):
                         ret.append(section)
                         break
@@ -251,14 +263,15 @@ class SUM:
                         'size': sec.SizeOfRawData}
 
         header = search_header.group(1) if search_header else section
-        raise Error('Section {0} not found'.format(header))
+        raise Exception('Section {0} not found'.format(header))
 
     def valid_pages(self):
-        array_valid_pages=[]
-        for page in [self.data[i:i+PAGE_SIZE] for i in range(0, len(self.data), PAGE_SIZE)]:
-            temp_valid_result =  False
+        array_valid_pages = []
+        for page in [self.data[i:i + PAGE_SIZE] for i in range(0, len(self.data), PAGE_SIZE)]:
+            temp_valid_result = False
             for byte in page:
-                if ord(byte) != 0:
+                # if ord(byte) != 0: # Python 2
+                if byte != 0:
                     temp_valid_result = True
                     break
             array_valid_pages.append(temp_valid_result)
@@ -272,31 +285,27 @@ class SUM:
 
         @returns a list of dictionaries
         """
-        
+
         if self.config.log_memory_pages:
-            if not self.config.SECTION or self.config.SECTION=='all' or 'PE' in self.config.SECTION:
+            if not self.config.SECTION or self.config.SECTION == 'all' or 'PE' in self.config.SECTION:
                 logfile = open(self.config.log_memory_pages, "w")
             else:
-                debug.warning('Warning: PE is not being dumped')
-
+                logger.warning('Warning: PE is not being dumped')
 
         valid_page_array = self.valid_pages()
-        # print('valid_page_array length:', len(valid_page_array))
-        # print ('self.data length', len(self.data))
-        
-        pe_memory_time=None
-        start = time.time()
-        pe = MarkedPE(data=self.data, virtual_layout=self.config.virtual_layout, valid_pages=valid_page_array, base_address=self.config.base_address, architecture=self.config.architecture)
-        end = time.time()
 
+        pe_memory_time = None
+        start = time.time()
+        pe = MarkedPE(data=self.data, virtual_layout=self.config.virtual_layout, valid_pages=valid_page_array,
+                      base_address=self.config.base_address, architecture=self.config.architecture)
+        end = time.time()
 
         pe_memory_time = end - start
 
         if hasattr(pe, 'DIRECTORY_ENTRY_EXPORT'):
-            pe.module_name = pe.DIRECTORY_ENTRY_EXPORT.name #TODO: use pe
+            pe.module_name = pe.DIRECTORY_ENTRY_EXPORT.name  # TODO: use pe
         else:
             pe.module_name = None
-
 
         preprocess = 'Raw'
         if self.config.list_sections:
@@ -306,18 +315,16 @@ class SUM:
             if self.config.derelocation in ['best', 'guide']:
                 # Retrieving reloc for module for text section
                 if self.config.reloc:
-
                     start = time.time()
                     guided_derelocation(pe, self.config.reloc)
                     end = time.time()
-                    
+
                     pre_processing_time = end - start
-                    
+
                     preprocess = 'Guide'
                 # TODO Depurar que si y solo si guided hay reloc
 
-            if (self.config.derelocation == 'best' and not self.config.reloc) or self.config.derelocation == 'linear' :
-                
+            if (self.config.derelocation == 'best' and not self.config.reloc) or self.config.derelocation == 'linear':
                 start = time.time()
                 linear_sweep_derelocation(pe)
                 end = time.time()
@@ -332,30 +339,43 @@ class SUM:
             for sec in self.process_section(self.config.section, pe):
                 data = sec.get_data()
                 for engine in self.hash_engines:
-                    num_pages, valid_pages, digesting_time, digest = engine.calculate(data=data, valid_pages=valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ])
-                    yield { 'digest':digest, 
-                        'digesting_time':digesting_time, 
-                        'base_address': self.config.base_address, 
-                        'mod_name': pe.module_name,
-                        'section': sec.Name,
-                        'virtual_address': sec.VirtualAddress, 
-                        'size': len(data), 
-                        'algorithm': engine.get_algorithm(),
-                        'num_pages': num_pages,
-                        'num_valid_pages': valid_pages,
-                        'pe_time': '{0:.20f}'.format(pe_memory_time), 
-                        'derelocation_time': '{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
-                        'valid_pages': valid_page_array[sec.VirtualAddress/PAGE_SIZE: sec.VirtualAddress/PAGE_SIZE + sec.real_size/PAGE_SIZE ], 
-                        'preprocess': preprocess}
-                    
+                    num_pages, valid_pages, digesting_time, digest = engine.calculate(data=data,
+                                                                                      valid_pages=valid_page_array[
+                                                                                                  int(sec.VirtualAddress / PAGE_SIZE): int(
+                                                                                                      sec.VirtualAddress / PAGE_SIZE + sec.real_size / PAGE_SIZE)])  # Changed for Python3 (int())
+                    yield {'digest': digest,
+                           'digesting_time': digesting_time,
+                           'base_address': self.config.base_address,
+                           'mod_name': pe.module_name,
+                           'section': sec.Name,
+                           'virtual_address': sec.VirtualAddress,
+                           'size': len(data),
+                           'algorithm': engine.get_algorithm(),
+                           'num_pages': num_pages,
+                           'num_valid_pages': valid_pages,
+                           'pe_time': '{0:.20f}'.format(pe_memory_time),
+                           'derelocation_time': '{0:.20f}'.format(pre_processing_time) if pre_processing_time else None,
+                           # Changed for Python 3 (int())
+                           'valid_pages': valid_page_array[
+                                          int(sec.VirtualAddress / PAGE_SIZE): int(
+                                              sec.VirtualAddress / PAGE_SIZE + sec.real_size / PAGE_SIZE)],
+                           'preprocess': preprocess}
+
                     if self.config.dump_dir:
-                        dump_path = os.path.join(self.config.dump_dir, '{0}-{1}-{2:x}.dmp'.format(pe.module_name if pe.module_name else 'mod', re.sub(r'\x00', r'', re.sub(r'\/', r'.', sec.Name)), self.config.base_address))
+                        dump_path = os.path.join(self.config.dump_dir,
+                                                 '{0}-{1}-{2:x}.dmp'.format(pe.module_name if pe.module_name else 'mod',
+                                                                            re.sub(r'\x00', r'',
+                                                                                   re.sub(r'\/', r'.', sec.Name)),
+                                                                            self.config.base_address))
                         self.backup_file(dump_path, data)
                     if self.config.log_memory_pages and sec.Name in ['PE', 'dump']:
                         if not self.config.dump_dir:
-                            debug.warning('Warning: Modules are not being dumped to file')
-                        logfile.write('{},{},{},{}:{}\n'.format(self.config.optparse_opts.location[7:], dump_path, hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(), len(valid_pages), ', '.join([str(i) for i in range(0, len(valid_pages)) if valid_pages[i] ])))
-                                
+                            logger.warning('Warning: Modules are not being dumped to file')
+                        logfile.write('{},{},{},{}:{}\n'.format(self.config.optparse_opts.location[7:], dump_path,
+                                                                hashlib.md5(pe.__data__[0:PAGE_SIZE]).hexdigest(),
+                                                                len(valid_pages), ', '.join(
+                                [str(i) for i in range(0, len(valid_pages)) if valid_pages[i]])))
+
             del data
         if 'logfile' in locals():
             logfile.close()
@@ -377,7 +397,8 @@ class SUM:
         """Compare hash for every dump page"""
         for h in hash_:
             # Review the following line (digest['digest'].split(';') (R) vs digest['digest'] (E))
-            for (sub_digest, index, valid_page) in zip( digest['digest'], range(0, digest['num_pages']), digest['valid_pages']):
+            for (sub_digest, index, valid_page) in zip(digest['digest'], range(0, digest['num_pages']),
+                                                       digest['valid_pages']):
                 if valid_page:
                     start = time.time()
                     similarity = self.hash_engines[0].compare(sub_digest, h)
@@ -395,6 +416,7 @@ class SUM:
     def list_algorithms(cls):
         return HashEngine.get_algorithms()
 
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -404,8 +426,10 @@ if __name__ == '__main__':
     parser.add_argument('--section', '-s', default='PE', help='PE section to hash (e.g. -s PE,.data,header,.rsrc)')
     # parser.add_argument('--algorithms', '-A', choices=HashEngine.get_algorithms(), help='Hash algorithms (e.g. -a {})'.format(' -a '.join(HashEngine.get_algorithms())), action='append', default=[HashEngine.default_algorithms])
     # Modified because TLSH hashes were always generated, even when the algorithm was not specified
-    parser.add_argument('--algorithms', '-A', choices=HashEngine.get_algorithms(), help='Hash algorithms (e.g. -a {})'.format(' -a '.join(HashEngine.get_algorithms())), action='append') 
-    parser.add_argument('--architecture', '-a', choices=['32', '64'], help='Code architecture') 
+    parser.add_argument('--algorithms', '-A', choices=HashEngine.get_algorithms(),
+                        help='Hash algorithms (e.g. -a {})'.format(' -a '.join(HashEngine.get_algorithms())),
+                        action='append')
+    parser.add_argument('--architecture', '-a', choices=['32', '64'], help='Code architecture')
     parser.add_argument('--compare-hash', '-c', help='Compare to given hash', action='append')
     parser.add_argument('--compare-file', '-C', help='Compare to hashes\' file', action='append')
     parser.add_argument('--time', '-t', help='Print computation time', action='store_true')
@@ -413,7 +437,8 @@ if __name__ == '__main__':
     parser.add_argument('--list-sections', help='Show PE sections', action='store_true')
     parser.add_argument('--json', help='Print JSON output', action='store_true')
     parser.add_argument('--output', '-o', help='ToDo', action='store_true')
-    parser.add_argument('--derelocation', '-d', default='best', choices=['best', 'guide', 'linear', 'raw'], help='De-relocate modules pre-processing method.')
+    parser.add_argument('--derelocation', '-d', default='best', choices=['best', 'guide', 'linear', 'raw'],
+                        help='De-relocate modules pre-processing method.')
     parser.add_argument('--log-memory-pages', help='Log pages which are in memory to FILE')
     parser.add_argument('file', help='File that contains the module')
 
@@ -424,9 +449,8 @@ if __name__ == '__main__':
         exit(-1)
     file = open(args.file, 'rb')
 
-
     if args.reloc:
-        if not os.path.isfile(args.reloc): 
+        if not os.path.isfile(args.reloc):
             print('Error: Reloc file {} is invalid.'.format(args.reloc))
             exit(-1)
         reloc = open(args.reloc, 'rb')
@@ -434,41 +458,54 @@ if __name__ == '__main__':
 
     tool = SUM(file.read(), args)
 
-    # Change working directory to reliably find Windows dependencies
-    os.chdir(os.path.realpath(os.path.dirname(__file__)))
-
-    # Create temporal file in Windows to store page data
-    temporal_windows_file = open(temporal_windows_filename, 'wb')
-    temporal_windows_file.close()
-
     if args.json:
         if args.list_sections:
             for output in tool.calculate():
-                # print(output)
-                print(json.dumps(output)) # In order to print valid JSON
+                print(output)
+                # print(json.dumps(output))  # In order to print valid JSON
         else:
             for output in tool.calculate():
-                output['base_address'] = hex(output.get('base_address')) if type(output.get('base_address')) == int else output.get('base_address')
-                output['virtual_address'] = hex(output.get('virtual_address')) if type(output.get('virtual_address')) == int else output.get('virtual_address')
-                # print(output)
-                print(json.dumps(output)) # In order to print valid JSON
+                output['base_address'] = hex(output.get('base_address')) if type(
+                    output.get('base_address')) == int else output.get('base_address')
+                output['virtual_address'] = hex(output.get('virtual_address')) if type(
+                    output.get('virtual_address')) == int else output.get('virtual_address')
+                print(output)
+                # print(json.dumps(output))  # In order to print valid JSON
     else:
         try:
             if args.list_sections:
-                print( 'List of sections in the module: {}'.format(', '.join(tool.calculate().next().get('section'))))
+                print('List of sections in the module: {}'.format(', '.join(tool.calculate().next().get('section'))))
             elif args.compare_hash or args.compare_file:
-                print( 'Name\t\tSection\tVirtual Address\tSize\tPre-processing\tAlgorithm\tSimilarity\tSub Digest\t\t\t\t\t\tCompared Digest')
-                print( '----\t\t-------\t---------------\t----\t--------------\t---------\t----------\t----------\t\t\t\t\t\t----------------')
+                print(
+                    'Name\t\tSection\tVirtual Address\tSize\tPre-processing\tAlgorithm\tSimilarity\tSub Digest\t\t\t\t\t\tCompared Digest')
+                print(
+                    '----\t\t-------\t---------------\t----\t--------------\t---------\t----------\t----------\t\t\t\t\t\t----------------')
                 for output in tool.calculate():
-                    print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}\t\t{}...\t{}...'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('virtual_address')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('similarity'), output.get('sub_digest')[:50], output.get('compared_digest')[:50] ))
-            
+                    print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}\t\t{}...\t{}...'.format(output.get('mod_name'),
+                                                                                  output.get('section'), hex(output.get(
+                            'base_address') + output.get('virtual_address')) if output.get('base_address') else hex(0),
+                                                                                  hex(output.get('size')),
+                                                                                  output.get('preprocess'),
+                                                                                  output.get('algorithm'),
+                                                                                  output.get('similarity'),
+                                                                                  output.get('sub_digest')[:50],
+                                                                                  output.get('compared_digest')[:50]))
+
             else:
-                print( 'Name\t\tSection\tVirtual Address\tSize\tPre-processing\tAlgorithm\tDigest\t')
-                print( '----\t\t-------\t---------------\t----\t--------------\t---------\t------\t')
+                print('Name\t\tSection\tVirtual Address\tSize\tPre-processing\tAlgorithm\tDigest\t')
+                print('----\t\t-------\t---------------\t----\t--------------\t---------\t------\t')
                 for output in tool.calculate():
-                    print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}...{}'.format(output.get('mod_name'), output.get('section'), hex(output.get('base_address') + output.get('virtual_address')) if output.get('base_address') else hex(0), hex(output.get('size')), output.get('preprocess'),output.get('algorithm'), output.get('digest')[:20], output.get('digest')[-20:] ))
+                    print('{}\t{}\t{}\t{}\t{}\t\t{}\t\t{}...{}'.format(output.get('mod_name'), output.get('section'),
+                                                                       hex(output.get('base_address') + output.get(
+                                                                           'virtual_address')) if output.get(
+                                                                           'base_address') else hex(0),
+                                                                       hex(output.get('size')),
+                                                                       output.get('preprocess'),
+                                                                       output.get('algorithm'),
+                                                                       output.get('digest')[:20],
+                                                                       output.get('digest')[-20:]))
         except Exception as e:
             traceback.print_exc()
 
     # Delete temporal file in Windows
-    os.remove(temporal_windows_filename)
+    tool.remove_windows_temporal_file()

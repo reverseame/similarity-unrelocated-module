@@ -1,5 +1,5 @@
 import time
-from datetime import timedelta
+
 
 class PrintObject(object):
     def __init__(self, data, hash_engine):
@@ -19,7 +19,8 @@ class PrintObject(object):
 
     def get_hash(self):
         if not self._hash:
-            self._num_page, self._num_valid_pages, self._hashing_time, self._hash = self.hash_engine.calculate(data=self.data)
+            self._num_page, self._num_valid_pages, self._hashing_time, self._hash = self.hash_engine.calculate(
+                data=self.data)
             self._size = len(self.data)
 
         return self._hash
@@ -29,7 +30,6 @@ class PrintObject(object):
 
     def get_comparing_time(self):
         return '{0:.20f}'.format(self._comparing_time)
-
 
     def get_size(self):
         return self._size
