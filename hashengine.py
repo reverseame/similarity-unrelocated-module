@@ -4,7 +4,6 @@ import subprocess
 import tlsh
 
 PAGE_SIZE = 4096
-temporal_windows_filename = r'windows_dependencies\SDAs\temporal_windows_file.dmp'
 
 
 def valid_page(page):
@@ -14,7 +13,7 @@ def valid_page(page):
     return False
 
 
-def write_page_contents_to_temporal_windows_file(data):
+def write_page_contents_to_temporal_windows_file(data, temporal_windows_filename):
     # Write the page data to a temporal file
     # The temporal file is created if it does not exist yet
     temporal_windows_file = open(temporal_windows_filename, 'wb')
@@ -27,17 +26,18 @@ class SSDeep:
     def get_algorithm(self):
         return 'SSDeep'
 
-    def calculate(self, data):
-        write_page_contents_to_temporal_windows_file(data)
+    def calculate(self, data, temporal_windows_filename):
+        write_page_contents_to_temporal_windows_file(data, temporal_windows_filename)
         ssdeep_command = [r'windows_dependencies\SDAs\ssdeep\ssdeep.exe', temporal_windows_filename]
         process = subprocess.Popen(ssdeep_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = process.communicate()
         return_code = process.returncode
         if return_code == 0:
-            if output == '':
+            output_lines = output.split(b'\n')
+            if output == '' or len(output_lines) < 2:
                 return 'SSDEEP_DIGEST_COULD_NOT_BE_CALCULATED_DESPITE_SUCCESS'
             else:
-                return output.split(b'\n')[1].split(b',')[0]
+                return output_lines[1].split(b',')[0]
         else:
             # print('Error: There was an error with the calculation of an ssdeep digest. {}'.format(error))
             return 'ERROR_SSDEEP_DIGEST_COULD_NOT_BE_CALCULATED'
@@ -51,8 +51,8 @@ class SDHash:
     def get_algorithm(self):
         return 'SDHash'
 
-    def calculate(self, data):
-        write_page_contents_to_temporal_windows_file(data)
+    def calculate(self, data, temporal_windows_filename):
+        write_page_contents_to_temporal_windows_file(data, temporal_windows_filename)
         sdhash_command = [r'windows_dependencies\SDAs\sdhash\sdhash.exe', temporal_windows_filename]
         process = subprocess.Popen(sdhash_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         output, error = process.communicate()
@@ -76,7 +76,7 @@ class TLSH:
     def get_algorithm(self):
         return 'TLSH'
 
-    def calculate(self, data):
+    def calculate(self, data, temporal_windows_filename):
         return tlsh.hash(data)
 
     def compare(self, hash1, hash2):
@@ -104,7 +104,7 @@ class HashEngine:
     def get_algorithms(cls):
         return HashEngine.algorithms.keys()
 
-    def calculate(self, file=None, data=None, valid_pages=None):
+    def calculate(self, file=None, data=None, valid_pages=None, temporal_windows_filename=None):
         if file:
             with open(file) as f:
                 data = f.read()
@@ -124,7 +124,7 @@ class HashEngine:
             num_pages += 1
             if valid:
                 start = time.time()
-                hash.append(self.engine.calculate(data[page_index:page_index + PAGE_SIZE]))
+                hash.append(self.engine.calculate(data[page_index:page_index + PAGE_SIZE], temporal_windows_filename))
                 end = time.time()
                 num_valid_pages += 1
 

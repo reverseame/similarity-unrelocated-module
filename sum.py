@@ -15,7 +15,6 @@ from marked_pefile.marked_pefile import MarkedPE
 from marked_pefile.pefile import pefile
 from derelocation import guided_derelocation, linear_sweep_derelocation
 from hashengine import HashEngine
-from hashengine import temporal_windows_filename
 
 # PE_HEADERS = ['dos_header', 'nt_headers', 'file_header', 'optional_header', 'header']
 
@@ -76,7 +75,8 @@ class SUM:
 
     def __init__(self, data, options=None, algorithms=['tlsh'], base_address=None, compare_file=None, compare_hash=None,
                  derelocation='best', dump_dir=None, file=None, json=False, list_sections=False, log_memory_pages=None,
-                 reloc=None, section='PE', strings=False, time=False, virtual_layout=False, architecture=None):
+                 reloc=None, section='PE', strings=False, time=False, virtual_layout=False, architecture=None,
+                 ramdisk_path=None):
         if options:
             self.config = options
         else:
@@ -97,6 +97,7 @@ class SUM:
             self.config.time = time
             self.config.virtual_layout = virtual_layout
             self.config.architecture = architecture
+            self.config.ramdisk_path = ramdisk_path
         self.data = data
 
         # Checking input data
@@ -104,6 +105,11 @@ class SUM:
 
         # ArgumentParser does not delete the default option in aggregate action -> deleting the first (default) when there are more than one
         # In addition, deleted duplications
+
+        # print(self.config.ramdisk_path)
+        if self.config.ramdisk_path and not os.path.exists(self.config.ramdisk_path):
+            print(f'The path inside the RamDisk received by SUM ({args.ramdisk_path}) does not exist')
+            exit(-1)
 
         os.chdir(os.path.dirname(__file__))  # Change working directory to reliably find Windows dependencies
         logger.debug(f'New working directory (SUM): {os.getcwd()}')
@@ -168,7 +174,16 @@ class SUM:
         self.remove_windows_temporal_file()
 
     def remove_windows_temporal_file(self):
-        os.remove(temporal_windows_filename)
+        if self.config.ramdisk_path:
+            try:
+                os.remove(os.path.join(self.config.ramdisk_path, 'temporal_windows_file.dmp'))
+            except FileNotFoundError:
+                pass
+        else:
+            try:
+                os.remove(r'windows_dependencies\SDAs\temporal_windows_file.dmp')
+            except FileNotFoundError:
+                pass
 
     def read_hash_files(self, path):
         ret = []
@@ -333,6 +348,11 @@ class SUM:
 
                 preprocess = 'Linear'
 
+            if self.config.ramdisk_path:
+                temporal_windows_filename = os.path.join(self.config.ramdisk_path, 'temporal_windows_file.dmp')
+            else:
+                temporal_windows_filename = r'windows_dependencies\SDAs\temporal_windows_file.dmp'
+
             # Generate one dump Object for every section/header specified
 
             # Set the list of sections that match with -S expression
@@ -342,7 +362,8 @@ class SUM:
                     num_pages, valid_pages, digesting_time, digest = engine.calculate(data=data,
                                                                                       valid_pages=valid_page_array[
                                                                                                   int(sec.VirtualAddress / PAGE_SIZE): int(
-                                                                                                      sec.VirtualAddress / PAGE_SIZE + sec.real_size / PAGE_SIZE)])  # Changed for Python3 (int())
+                                                                                                      sec.VirtualAddress / PAGE_SIZE + sec.real_size / PAGE_SIZE)],
+                                                                                      temporal_windows_filename=temporal_windows_filename)  # Changed for Python3 (int())
                     yield {'digest': digest,
                            'digesting_time': digesting_time,
                            'base_address': self.config.base_address,
@@ -440,6 +461,7 @@ if __name__ == '__main__':
     parser.add_argument('--derelocation', '-d', default='best', choices=['best', 'guide', 'linear', 'raw'],
                         help='De-relocate modules pre-processing method.')
     parser.add_argument('--log-memory-pages', help='Log pages which are in memory to FILE')
+    parser.add_argument('--ramdisk-path', help='Path inside a RamDisk to improve performance')
     parser.add_argument('file', help='File that contains the module')
 
     args = parser.parse_args()
@@ -506,6 +528,3 @@ if __name__ == '__main__':
                                                                        output.get('digest')[-20:]))
         except Exception as e:
             traceback.print_exc()
-
-    # Delete temporal file in Windows
-    tool.remove_windows_temporal_file()
