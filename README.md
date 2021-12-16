@@ -9,14 +9,22 @@ This tool implements two de-relocation methods:
 A Similarity Digest Algorithm (also known as approximate matching algorithm) identifies similarities between digital artifacts. In particular, the algorithm outputs a digest that can then be compared with other digests, obtaining a similarity score (which normally ranges from 0 to 100).
 
 At the moment of this writing, the algorithms included in this plugin are `ssdeep`, `SDhash`, and `TLSH`
-`dfcldd` has been discarded because it is a weak algorithm
+`dfcldd` has been discarded because it is a weak algorithm.
+
+## Volatility Plugin - Similarity Unrelocated Module
+
+This repository was originally a Volatility plugin. However it has been decoupled in 2 projects. The current repository contains `SUM` tool that undoes modifications and yields digests of module files or dumps.
+
+[sum-plugin](https://github.com/reverseame/sum-plugin) is the Volatility plugin that wraps the current tool to work with memory dumps.\
+You can install the plugin with:\
+`git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/reverseame/sum-plugin.git`
 
 ## Installation
 
-You can install all dependencies with [installdeps.sh](installdeps.sh):
+You can clone `SUM` with its depecencise with:\
+`git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/reverseame/similarity-unrelocated-module.git`
 
-- System: `ssdeep libfuzzy-dev`, `git`, `libffi-dev`, `libssl1.0.0`, `build-essential`
-- Python 2.7: `pycrypto`, `distorm3`, `ssdeep`, `fuzzyhashlib`, `capstone`
+You can install all dependencies with [installdeps.sh](installdeps.sh).
 
 ## Usage
 
