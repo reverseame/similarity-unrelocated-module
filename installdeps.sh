@@ -20,7 +20,7 @@ pip install --upgrade setuptools
 pip2 install $pythondeps
 
 # Marked Pefile
-if [ ! -z 'ls marked_pefile' ]; then
+if [ -z 'ls marked_pefile' ]; then
     sudo -u $SUDO_USER git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/miguelmartinperez/markedPefile.git marked_pefile
 fi
 
