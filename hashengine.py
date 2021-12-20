@@ -35,12 +35,14 @@ class SSDeep:
         if return_code == 0:
             output_lines = output.split(b'\n')
             if output == '' or len(output_lines) < 2:
-                return 'SSDEEP_DIGEST_COULD_NOT_BE_CALCULATED_DESPITE_SUCCESS'
+                # return 'SSDEEP_DIGEST_COULD_NOT_BE_CALCULATED_DESPITE_SUCCESS'
+                return '-'
             else:
-                return output_lines[1].split(b',')[0]
+                return output_lines[1].split(b',')[0].decode('utf-8')
         else:
             # print('Error: There was an error with the calculation of an ssdeep digest. {}'.format(error))
-            return 'ERROR_SSDEEP_DIGEST_COULD_NOT_BE_CALCULATED'
+            # return 'ERROR_SSDEEP_DIGEST_COULD_NOT_BE_CALCULATED'
+            return '-'
 
     def compare(self, hash1, hash2):
         return '-'  # Not supported in Windows at the moment
@@ -59,13 +61,15 @@ class SDHash:
         return_code = process.returncode
         if return_code == 0:
             if output == '':
-                return 'SDHASH_DIGEST_COULD_NOT_BE_CALCULATED_DESPITE_SUCCESS'
+                # return 'SDHASH_DIGEST_COULD_NOT_BE_CALCULATED_DESPITE_SUCCESS'
+                return '-'
             else:
                 # To make the hash be the same as when SUM is run on Linux
-                return re.sub(b'^sdbf:03:\d+:.+:4096:sha1:', b'sdbf:03:0::4096:sha1:', output.rstrip())
+                return re.sub(b'^sdbf:03:\d+:.+:4096:sha1:', b'sdbf:03:0::4096:sha1:', output.rstrip()).decode('utf-8')
         else:
             # print('Error: There was an error with the calculation of an sdhash digest. {}'.format(error))
-            return 'ERROR_SDHASH_DIGEST_COULD_NOT_BE_CALCULATED'
+            # return 'ERROR_SDHASH_DIGEST_COULD_NOT_BE_CALCULATED'
+            return '-'
 
     def compare(self, hash1, hash2):
         return '-'  # Not supported in Windows at the moment
