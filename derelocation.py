@@ -280,10 +280,11 @@ def derelocation_code_86(pe):
     string_len = 0
     pad_after_string = 0
     end_string = False
-    while index < code_section.VirtualAddress + code_section.real_size:
-        for byte_index in range(index, code_section.VirtualAddress + code_section.real_size, 2):
+    while index < code_section.VirtualAddress + int(code_section.real_size):  # P3 (int())
+        for byte_index in range(index, code_section.VirtualAddress + int(code_section.real_size), 2):  # P3 (int())
             if pe.__visited__[byte_index] == MARKS['UNKW_BYTE']:
-                if 32 <= ord(pe.__data__[byte_index]) <= 122 and pe.__data__[byte_index + 1] == '\x00':
+                # if 32 <= ord(pe.__data__[byte_index]) <= 122 and pe.__data__[byte_index + 1] == '\x00':  # P2
+                if 32 <= pe.__data__[byte_index] <= 122 and pe.__data__[byte_index + 1] == 0:
                     if end_string:
                         if string_len >= LIMIT_UNICODE_STRING_LEN:
                             pe.set_visited(pointer=index, size=(string_len + pad_after_string) * 2,
@@ -303,7 +304,8 @@ def derelocation_code_86(pe):
                         end_string = False
                     else:
                         string_len += 1
-                elif pe.__data__[byte_index] == '\x00' and pe.__data__[byte_index + 1] == '\x00':
+                # elif pe.__data__[byte_index] == '\x00' and pe.__data__[byte_index + 1] == '\x00': # P2
+                elif pe.__data__[byte_index] == 0 and pe.__data__[byte_index + 1] == 0:
                     if end_string:
                         pad_after_string += 1
                     else:
@@ -315,7 +317,8 @@ def derelocation_code_86(pe):
                             string_len = 0
                             pad_after_string = 0
                             end_string = False
-                elif pe.__data__[byte_index] == '\x90' and pe.__data__[byte_index + 1] == '\x90':
+                # elif pe.__data__[byte_index] == '\x90' and pe.__data__[byte_index + 1] == '\x90': # P2
+                elif pe.__data__[byte_index] == 144 and pe.__data__[byte_index + 1] == 144:
                     if end_string:
                         pad_after_string += 1
                     else:
@@ -355,10 +358,10 @@ def derelocation_code_86(pe):
                             pe.set_visited(pointer=index - 8, size=8, tag=MARKS['STRING_UNICODE'])
                 try:
                     index = byte_index + pe.__visited__[
-                                         byte_index:code_section.VirtualAddress + code_section.real_size].index(
-                        MARKS['UNKW_BYTE'])
+                                         byte_index:code_section.VirtualAddress + int(code_section.real_size)].index(
+                        MARKS['UNKW_BYTE'])  # P3 (int())
                 except ValueError as e:
-                    index = code_section.VirtualAddress + code_section.real_size
+                    index = code_section.VirtualAddress + int(code_section.real_size)  # P3 (int())
                 string_len = 0
                 pad_after_string = 0
                 end_string = False
@@ -369,10 +372,11 @@ def derelocation_code_86(pe):
     string_len = 0
     pad_after_string = 0
     end_string = False
-    while index < code_section.VirtualAddress + code_section.real_size:
-        for byte_index in range(index, code_section.VirtualAddress + code_section.real_size):
+    while index < code_section.VirtualAddress + int(code_section.real_size):  # P3 (int())
+        for byte_index in range(index, code_section.VirtualAddress + int(code_section.real_size)):  # P3 (int())
             if pe.__visited__[byte_index] == MARKS['UNKW_BYTE']:
-                if 32 <= ord(pe.__data__[byte_index]) <= 122:
+                # if 32 <= ord(pe.__data__[byte_index]) <= 122: # P2
+                if 32 <= pe.__data__[byte_index] <= 122:
                     if end_string:
                         if string_len >= LIMIT_ASCII_STRING_LEN and byte_index % 2 == 0:
                             pe.set_visited(pointer=index, size=string_len + pad_after_string, tag=MARKS['STRING_ASCII'])
@@ -382,7 +386,8 @@ def derelocation_code_86(pe):
                         end_string = False
                     else:
                         string_len += 1
-                elif pe.__data__[byte_index] == '\x00':
+                # elif pe.__data__[byte_index] == '\x00': P2
+                elif pe.__data__[byte_index] == 0:
                     if end_string:
                         pad_after_string += 1
                     else:
@@ -399,7 +404,8 @@ def derelocation_code_86(pe):
                             string_len = 0
                             pad_after_string = 0
                             end_string = False
-                elif pe.__data__[byte_index] == '\x90':
+                # elif pe.__data__[byte_index] == '\x90': # P2
+                elif pe.__data__[byte_index] == 144:
                     if end_string:
                         pad_after_string += 1
                     else:
@@ -419,10 +425,10 @@ def derelocation_code_86(pe):
                     pe.set_visited(pointer=index, size=string_len + pad_after_string, tag=MARKS['STRING_ASCII'])
                 try:
                     index = byte_index + pe.__visited__[
-                                         byte_index:code_section.VirtualAddress + code_section.real_size].index(
-                        MARKS['UNKW_BYTE'])
+                                         byte_index:code_section.VirtualAddress + int(code_section.real_size)].index(
+                        MARKS['UNKW_BYTE'])  # P3 (int())
                 except ValueError as e:
-                    index = code_section.VirtualAddress + code_section.real_size
+                    index = code_section.VirtualAddress + int(code_section.real_size)  # P3 (int())
                 string_len = 0
                 pad_after_string = 0
                 end_string = False
@@ -432,7 +438,8 @@ def derelocation_code_86(pe):
     padding_elements = NUM_PAD_ELEMENTS
     num_elements = 0
     previous_element = []
-    for index in range(code_section.VirtualAddress, code_section.VirtualAddress + code_section.real_size, 4):
+    for index in range(code_section.VirtualAddress, code_section.VirtualAddress + int(code_section.real_size),
+                       4):  # P3 (int())
         address = struct.unpack('I', pe.__data__[index:index + 4])[0]
         if pe.__base_address__ <= address <= pe.__base_address__ + pe.__size__:
             num_elements += 1
@@ -490,10 +497,12 @@ def derelocation_code_86(pe):
 
     # Finding known pattern xfe\xff\xff\xff
     index = code_section.VirtualAddress
-    pattern = re.compile('\xfe\xff')
-    offset = pattern.search(pe.__data__[index:code_section.VirtualAddress + code_section.real_size])
+    # pattern = re.compile('\xfe\xff') # P2
+    pattern = re.compile(b'\xfe\xff')
+    offset = pattern.search(pe.__data__[index:code_section.VirtualAddress + int(code_section.real_size)])  # P3 (int())
     while offset:
-        if pe.__data__[index + offset.end()] == '\xff' and pe.__data__[index + offset.end() + 1] == '\xff':
+        # if pe.__data__[index + offset.end()] == '\xff' and pe.__data__[index + offset.end() + 1] == '\xff': # P2
+        if pe.__data__[index + offset.end()] == 255 and pe.__data__[index + offset.end() + 1] == 255:
             index += offset.end() + 2
             address = struct.unpack('I', pe.__data__[index:index + 4])[0]
             try:
@@ -516,23 +525,23 @@ def derelocation_code_86(pe):
                             pe.set_zero_word(index + 4)
             except PeMemError as e:
                 pass
-            offset = pattern.search(pe.__data__[index:code_section.real_size])
+            offset = pattern.search(pe.__data__[index:int(code_section.real_size)])  # P3 (int())
 
         else:
             index += offset.end()
-            offset = pattern.search(pe.__data__[index:code_section.real_size])
+            offset = pattern.search(pe.__data__[index:int(code_section.real_size)])  # P3 (int())
 
     # disassembling
     md = Cs(CS_ARCH_X86, CS_MODE_32)
     md.detail = True
 
     code_rva_offset = code_section.VirtualAddress
-    while code_rva_offset < code_section.VirtualAddress + code_section.real_size and \
-            MARKS['UNKW_BYTE'] in pe.__visited__[code_rva_offset:code_section.VirtualAddress + code_section.real_size]:
-
+    while code_rva_offset < code_section.VirtualAddress + int(code_section.real_size) and MARKS[
+        'UNKW_BYTE'] in pe.__visited__[
+                        code_rva_offset:code_section.VirtualAddress + int(code_section.real_size)]:  # P3 (int())
         code_rva_offset = code_rva_offset + pe.__visited__[
-                                            code_rva_offset:code_section.VirtualAddress + code_section.real_size].index(
-            MARKS['UNKW_BYTE'])
+                                            code_rva_offset:code_section.VirtualAddress + int(
+                                                code_section.real_size)].index(MARKS['UNKW_BYTE'])  # P3 (int())
         # Finding the longest sequence of instructions
         instruction_vector = [0] * 15  # Max length of a intel instruction
         inst_adds = []
@@ -542,8 +551,8 @@ def derelocation_code_86(pe):
             # instruction_vector[instuction_index + length_inst_sec] = -1 # Avoid inspect a instruction several times
 
             break_loop = False
-            for inst in md.disasm(pe.__data__[code_rva_offset + instuction_index:code_section.real_size],
-                                  code_rva_offset + instuction_index):
+            for inst in md.disasm(pe.__data__[code_rva_offset + instuction_index:int(code_section.real_size)],
+                                  code_rva_offset + instuction_index):  # P3 (int())
                 break_loop = False
                 for inst_byte in range(inst.address, inst.address + inst.size):
                     if pe.__visited__[inst_byte] != MARKS['UNKW_BYTE']:
@@ -882,7 +891,8 @@ def guided_derelocation(pe, reloc):
         pass
 
     while block_size != 0:
-        for reloc_typ_add in unpack('H' * (len(reloc[index + 8:index + block_size]) / 2),
+        # for reloc_typ_add in unpack('H' * (len(reloc[index + 8:index + block_size]) / 2), reloc[index + 8:index + block_size]): # P2
+        for reloc_typ_add in unpack('H' * (len(reloc[index + 8:index + block_size]) // 2),
                                     reloc[index + 8:index + block_size]):
             reloc_type = (reloc_typ_add & 0xF000) >> 12
             reloc_offset = (reloc_typ_add & 0x0FFF)
@@ -893,51 +903,64 @@ def guided_derelocation(pe, reloc):
             elif reloc_type == 1:
                 '''The base relocation adds the high 16 bits of the difference to the 16-bit field at offset. 
                 The 16-bit field represents the high value of a 32-bit word.'''
-                pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + chr(0) + chr(
-                    0) + pe.__data__[RVA_page + reloc_offset + 2:]
-                logger.debug(
-                    'Warning: Unrelocation error: Case {0} in block {1} offset {2}, module {3}\n'.format(
-                        reloc_type, RVA_page, reloc_offset, pe.__modul_name__))
+                # pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + chr(0) + chr(0) + pe.__data__[RVA_page + reloc_offset + 2:] # P2
+                pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + b'\x00' + b'\x00' + pe.__data__[
+                                                                                          RVA_page + reloc_offset + 2:]
+                # logger.debug('Warning: Unrelocation error: Case {0} in block {1} offset {2}, module {3}\n'.format(reloc_type, RVA_page, reloc_offset, pe.__modul_name__))
+                logger.debug('Warning: Unrelocation error: Case {0} in block {1} offset {2}\n'.format(reloc_type,
+                                                                                                      RVA_page,
+                                                                                                      reloc_offset))
 
             elif reloc_type == 2:
                 '''The base relocation adds the low 16 bits of the difference to the 16-bit field at offset. 
                 The 16-bit field represents the low half of a 32-bit word.'''
-                pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + chr(0) + chr(
-                    0) + pe.__data__[RVA_page + reloc_offset + 2:]
+                # pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + chr(0) + chr(0) + pe.__data__[RVA_page + reloc_offset + 2:] # P2
+                pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + b'\x00' + b'\x00' + pe.__data__[
+                                                                                          RVA_page + reloc_offset + 2:]
+                # logger.debug('Warning: Unrelocation error: Case {0} in block {1} offset {2}, module {3}\n'.format(reloc_type, RVA_page, reloc_offset, pe.__modul_name__))
                 logger.debug(
-                    'Warning: Unrelocation error: Case {0} in block {1} offset {2}, module {3}\n'.format(
-                        reloc_type, RVA_page, reloc_offset, pe.__modul_name__))
+                    'Warning: Unrelocation error: Case {0} in block {1} offset {2}\n'.format(reloc_type,
+                                                                                             RVA_page,
+                                                                                             reloc_offset))
 
             elif reloc_type == 3:
                 '''The base relocation applies all 32 bits of the difference to the 32-bit field at offset.'''
                 # As low 16-bit of image base address are always \x00\x00, only it's necessary set higher 16-bit to zero.
-                pe.__data__ = pe.__data__[:RVA_page + reloc_offset + 2] + chr(0) + chr(
-                    0) + pe.__data__[RVA_page + reloc_offset + 4:]
+                # pe.__data__ = pe.__data__[:RVA_page + reloc_offset + 2] + chr(0) + chr(0) + pe.__data__[RVA_page + reloc_offset + 4:] # P2
+                pe.__data__ = pe.__data__[:RVA_page + reloc_offset + 2] + b'\x00' + b'\x00' + pe.__data__[
+                                                                                              RVA_page + reloc_offset + 4:]
 
             elif reloc_type == 4:
                 '''The base relocation adds the high 16 bits of the difference to the 16-bit field at offset. 
                 The 16-bit field represents the high value of a 32-bit word. The low 16 bits of the 32-bit value 
                 are stored in the 16-bit word that follows this base relocation. This means that this base 
                 relocation occupies two slots. '''
-                pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + chr(0) + chr(0) + chr(0) + \
-                              chr(0) + pe.__data__[RVA_page + reloc_offset + 4:]
+                # pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + chr(0) + chr(0) + chr(0) + chr(0) + pe.__data__[RVA_page + reloc_offset + 4:] # P2
+                pe.__data__ = pe.__data__[
+                              :RVA_page + reloc_offset] + b'\x00' + b'\x00' + b'\x00' + b'\x00' + pe.__data__[
+                                                                                                  RVA_page + reloc_offset + 4:]
+                # logger.debug('Warning: Unrelocation error: Case {0} in block {1} offset {2}, module {3}\n'.format(reloc_type, RVA_page, reloc_offset, pe.__modul_name__))
                 logger.debug(
-                    'Warning: Unrelocation error: Case {0} in block {1} offset {2}, module {3}\n'.format(
-                        reloc_type, RVA_page, reloc_offset, pe.__modul_name__))
+                    'Warning: Unrelocation error: Case {0} in block {1} offset {2}\n'.format(
+                        reloc_type, RVA_page, reloc_offset))
             elif reloc_type == 10:
                 '''The base relocation applies the difference to the 64-bit field at offset. '''
-                pe.__data__ = pe.__data__[:RVA_page + reloc_offset + 2] + \
-                              chr(0) + chr(0) + chr(0) + chr(0) + chr(0) + chr(0) + \
-                              pe.__data__[RVA_page + reloc_offset + 8:]
+                # pe.__data__ = pe.__data__[:RVA_page + reloc_offset + 2] + chr(0) + chr(0) + chr(0) + chr(0) + chr(0) + chr(0) + pe.__data__[RVA_page + reloc_offset + 8:] # P2
+                pe.__data__ = pe.__data__[
+                              :RVA_page + reloc_offset + 2] + b'\x00' + b'\x00' + b'\x00' + b'\x00' + b'\x00' + b'\x00' + pe.__data__[
+                                                                                                                          RVA_page + reloc_offset + 8:]
 
             else:
                 # Set 0x00 0x00 bytes modified by relocation
-                pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + chr(0) + chr(0) + chr(0) + \
-                              chr(0) + pe.__data__[RVA_page + reloc_offset + 4:]
+                # pe.__data__ = pe.__data__[:RVA_page + reloc_offset] + chr(0) + chr(0) + chr(0) + chr(0) + pe.__data__[RVA_page + reloc_offset + 4:] # P2
+                pe.__data__ = pe.__data__[
+                              :RVA_page + reloc_offset] + b'\x00' + b'\x00' + b'\x00' + b'\x00' + pe.__data__[
+                                                                                                  RVA_page + reloc_offset + 4:]
                 '''unreloc_data[RVA_page - PAGE_SIZE + reloc_offset] = 0x00
                 unreloc_data[RVA_page - PAGE_SIZE + reloc_offset + 1] = 0x00'''
-                logger.debug('Warning: Unrelocation error: Case {0} in block {1} offset {2}, module {3}\n'.format(
-                    reloc_type, RVA_page, reloc_offset, pe.__modul_name__))
+                # logger.debug('Warning: Unrelocation error: Case {0} in block {1} offset {2}, module {3}\n'.format(reloc_type, RVA_page, reloc_offset, pe.__modul_name__))
+                logger.debug('Warning: Unrelocation error: Case {0} in block {1} offset {2}\n'.format(
+                    reloc_type, RVA_page, reloc_offset))
 
         index += block_size
         if index + 8 > len(reloc):
