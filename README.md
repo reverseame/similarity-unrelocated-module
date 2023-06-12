@@ -11,6 +11,8 @@ A Similarity Digest Algorithm (also known as approximate matching algorithm) ide
 At the moment of this writing, the algorithms included in this plugin are `ssdeep`, `SDhash`, and `TLSH`
 `dfcldd` has been discarded because it is a weak algorithm.
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 ## Volatility Plugin - Similarity Unrelocated Module
 
 This repository was originally a Volatility plugin. However it has been decoupled in 2 projects. The current repository contains `SUM` tool that undoes modifications and yields digests of module files or dumps.
