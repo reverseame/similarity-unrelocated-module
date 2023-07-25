@@ -1,7 +1,5 @@
 # Similarity Unrelocated Module - SUM
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-
 `SUM` undoes modifications done by relocation process on modules (namely, processes of .exe and .dll files). Then it yields a Similarity Digest for each memory page of unrelocated modules.
 
 This tool implements two de-relocation methods: 
@@ -12,6 +10,8 @@ A Similarity Digest Algorithm (also known as approximate matching algorithm) ide
 
 At the moment of this writing, the algorithms included in this plugin are `ssdeep`, `SDhash`, and `TLSH`
 `dfcldd` has been discarded because it is a weak algorithm.
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ## Volatility Plugin - Similarity Unrelocated Module
 
