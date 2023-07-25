@@ -1,5 +1,7 @@
 # Similarity Unrelocated Module - SUM
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 `SUM` undoes modifications done by relocation process on modules (namely, processes of .exe and .dll files). Then it yields a Similarity Digest for each memory page of unrelocated modules.
 
 This tool implements two de-relocation methods: 
